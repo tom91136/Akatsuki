@@ -1,0 +1,1 @@
+include ':app', ':akatsuki-api', ':akatsuki-compiler', ':akatsuki-parceler'

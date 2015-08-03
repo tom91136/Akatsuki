@@ -1,0 +1,33 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Activity"
+        android:textAppearance="?android:textAppearanceMedium"/>
+
+    <EditText
+        android:id="@+id/persisted"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:hint="This text field will be retained, type something here and rotate the screen. (Yes, EditText does it for you. But just to demonstrate, I set the value to the @Retained one anyway)"
+        android:padding="16dp"/>
+
+
+    <fragment
+        android:id="@+id/fragment"
+        android:name="com.sora.util.akatsuki.app.MainActivityFragment"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        tools:layout="@layout/fragment_main"/>
+
+
+</LinearLayout>
+
+

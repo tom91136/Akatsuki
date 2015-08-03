@@ -1,0 +1,20 @@
+buildscript {
+    repositories {
+        maven { url 'http://repo.spring.io/plugins-release' }
+    }
+    dependencies {
+        classpath 'com.netflix.nebula:gradle-extra-configurations-plugin:2.2.2'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'provided-base'
+
+targetCompatibility = '1.7'
+sourceCompatibility = '1.7'
+
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    provided 'com.google.android:android:4.1.1.4'
+}

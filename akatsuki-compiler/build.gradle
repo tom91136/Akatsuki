@@ -1,0 +1,38 @@
+buildscript {
+    repositories {
+        maven { url 'http://repo.spring.io/plugins-release' }
+    }
+    dependencies {
+        classpath 'com.netflix.nebula:gradle-extra-configurations-plugin:2.2.2'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'provided-base'
+
+sourceCompatibility = '1.8'
+sourceCompatibility = '1.8'
+
+test {
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}
+
+dependencies {
+    // do not include any Android classes, it will disappear at compile time
+    compile project(':akatsuki-api')
+    compile 'com.squareup:javapoet:1.2.0'
+    compile 'com.google.auto.service:auto-service:1.0-rc2'
+    compile 'com.github.spullara.mustache.java:compiler:0.9.0'
+    compile 'io.janusproject.guava:guava:19.0.0'
+    compile 'com.google.android:android:4.1.1.4'
+
+    testCompile 'com.google.testing.compile:compile-testing:0.7'
+    testCompile 'com.google.android:android:4.1.1.4' // with the exception of testing of course
+    testCompile 'io.janusproject.guava:guava:19.0.0'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+    testCompile 'org.mdkt.compiler:InMemoryJavaCompiler:1.2'
+    testCompile 'junit:junit:4.12'
+
+}
