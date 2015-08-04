@@ -1,5 +1,6 @@
 Akatsuki
 ============
+**This library is complete and functional but I would like to make sure everything works so no artifacts yet!**
 
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
