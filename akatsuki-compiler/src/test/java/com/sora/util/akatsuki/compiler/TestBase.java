@@ -33,9 +33,6 @@ import javax.tools.JavaFileObject;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
-/**
- * Project: Akatsuki Created by Tom on 7/26/2015.
- */
 public class TestBase {
 
 	public static final String TEST_PACKAGE = "test";
@@ -52,18 +49,21 @@ public class TestBase {
 	// allows custom annotation spec
 	public static FieldSpec field(TypeName typeName, String name, AnnotationSpec spec,
 			Modifier... modifiers) {
-		return FieldSpec.builder(typeName, name, modifiers).addAnnotation(spec).build();
+		final Builder builder = FieldSpec.builder(typeName, name, modifiers);
+		if (spec != null)
+			builder.addAnnotation(spec);
+		return builder.build();
 	}
 
 	// allows custom initializer
 	public static FieldSpec field(TypeName typeName, String name,
 			Class<? extends Annotation> annotation, String initializer, Modifier... modifiers) {
-		final Builder builder = FieldSpec.builder(typeName, name, modifiers)
-				.addAnnotation(annotation);
+		final Builder builder = FieldSpec.builder(typeName, name, modifiers);
+		if (annotation != null)
+			builder.addAnnotation(annotation);
 		if (initializer != null)
 			builder.initializer(initializer);
 		return builder.build();
-
 	}
 
 	public Iterable<Processor> processors() {

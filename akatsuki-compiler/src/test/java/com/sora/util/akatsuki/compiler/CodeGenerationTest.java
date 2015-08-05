@@ -35,25 +35,24 @@ import android.util.Size;
 import android.util.SizeF;
 import android.util.SparseArray;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.Retained;
-import com.sora.util.akatsuki.compiler.CodeGenUtils.JavaSource;
+import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.AccessorKeyPair;
+import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.FieldFilter;
+import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
+import com.sora.util.akatsuki.compiler.Field.RetainedField;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.mockito.AdditionalMatchers;
 import org.mockito.ArgumentCaptor;
 
 import java.io.Serializable;
@@ -68,6 +67,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -77,8 +77,7 @@ import javax.lang.model.element.Modifier;
 import javax.tools.JavaFileObject;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -112,30 +111,27 @@ public class CodeGenerationTest extends TestBase {
 
 	public static AtomicLong classIdentifier = new AtomicLong();
 
-	@Before
-	public void incrementIdentifier() {
-		classIdentifier.incrementAndGet();
+	public static String generateClassName() {
+		return TEST_CLASS + classIdentifier.incrementAndGet();
 	}
 
 	@Test(expected = RuntimeException.class)
-	public void testUnsupportedType() throws Exception {
-
-		final JavaSource source = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(ClassName.get(Activity.class), "badType", Retained.class));
-		new MockedClasses(this, source);
+	public void testUnsupportedType() {
+		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
+				.fields(field(ClassName.get(Activity.class), "badType", Retained.class));
+		new TestEnvironment(this, source);
 	}
 
 	@Test
-	public void testPrimitives() throws Exception {
-		testSimpleTypes(t -> true, CLASS, null, PRIMITIVES);
+	public void testPrimitives() {
+		testSimpleTypes(t -> true, TestEnvironment.CLASS, null, PRIMITIVES);
 	}
 
 	// TODO we got some wicked problem with boxed types, the compiled retainer
 	// throws NPE at lines that doesn't even contain code
 	@Ignore
 	@Test
-	public void testBoxedPrimitives() throws Exception {
+	public void testBoxedPrimitives() {
 		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(Primitives::wrap)
 				.toArray(Class<?>[]::new);
 		// boxed primitives cannot be null otherwise we get NPE when unboxing
@@ -143,25 +139,25 @@ public class CodeGenerationTest extends TestBase {
 				.put(Byte.class, "0").put(Short.class, "0").put(Integer.class, "0")
 				.put(Long.class, "0L").put(Float.class, "0.0F").put(Double.class, "0.0D")
 				.put(Character.class, "\'a\'").put(Boolean.class, "false").build();
-		testSimpleTypes(t -> true, CLASS, f -> field(f.typeName(), f.name, Retained.class,
-				defaultValueMap.getOrDefault(f.clazz, null)), classes);
+		testSimpleTypes(t -> true, TestEnvironment.CLASS, f -> field(f.typeName(), f.name,
+				Retained.class, defaultValueMap.getOrDefault(f.clazz, null)), classes);
 
 	}
 
 	@Test
-	public void testPrimitiveArrays() throws Exception {
+	public void testPrimitiveArrays() {
 		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(this::toArrayClass)
 				.toArray(Class<?>[]::new);
-		testSimpleTypes(n -> n.contains("Array"), CLASS, null, classes);
+		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null, classes);
 	}
 
 	@Test
-	public void testSupportedSimpleTypes() throws Exception {
-		testSimpleTypes(n -> true, CLASS, null, SUPPORTED_SIMPLE_CLASSES);
+	public void testSupportedSimpleTypes() {
+		testSimpleTypes(n -> true, TestEnvironment.CLASS, null, SUPPORTED_SIMPLE_CLASSES);
 	}
 
 	@Test
-	public void testSubclassOfSupportedTypes() throws Exception {
+	public void testSubclassOfSupportedTypes() {
 		for (Entry<Class<?>, Class<?>> entry : SUPPORTED_SIMPLE_SUBCLASSES_MAP.entrySet()) {
 			testSimpleTypes(n -> true, (f, t, a) -> t.equals(entry.getValue()), null,
 					entry.getKey());
@@ -169,22 +165,23 @@ public class CodeGenerationTest extends TestBase {
 	}
 
 	@Test
-	public void testParcelableAndParcelableSubclassTypes() throws Exception {
+	public void testParcelableAndParcelableSubclassTypes() {
 		// parcelable requires special care because the get accessor returns a
 		// <T> instead of Parcelable
 		for (Class<? extends Parcelable> type : PARCELABLES_CLASSES) {
 			// filter out the method [get|set]Parcelable and work with that only
-			testSimpleTypes(n -> n.endsWith("Parcelable"), ALWAYS, null, type);
+			testSimpleTypes(n -> n.endsWith("Parcelable"), TestEnvironment.ALWAYS, null, type);
 		}
 	}
 
 	@Test
-	public void testSupportedArrayTypes() throws Exception {
-		testSimpleTypes(n -> n.contains("Array"), CLASS, null, SUPPORTED_ARRAY_CLASSES);
+	public void testSupportedArrayTypes() {
+		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null,
+				SUPPORTED_ARRAY_CLASSES);
 	}
 
 	@Test
-	public void testSupportedArraySubclassTypes() throws Exception {
+	public void testSupportedArraySubclassTypes() {
 		List<Class<?>> classes = new ArrayList<>();
 		classes.addAll(Arrays.asList(PARCELABLES_CLASSES));
 		classes.addAll(Arrays.asList(StringBuilder.class, CharBuffer.class, Spannable.class,
@@ -192,27 +189,28 @@ public class CodeGenerationTest extends TestBase {
 
 		for (Class<?> type : classes) {
 			// the type of the accessor must be assignable to the field's
-			testSimpleTypes(n -> n.contains("Array"), ASSIGNABLE, null, toArrayClass(type));
+			testSimpleTypes(n -> n.contains("Array"), TestEnvironment.ASSIGNABLE, null,
+					toArrayClass(type));
 		}
 	}
 
 	@Test
-	public void testSparseArrayParcelableType() throws Exception {
-		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), CLASS, null,
-				SparseArray.class, PARCELABLES_CLASSES);
+	public void testSparseArrayParcelableType() {
+		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), TestEnvironment.CLASS,
+				null, SparseArray.class, PARCELABLES_CLASSES);
 	}
 
 	@Test
-	public void testParcelableArrayListType() throws Exception {
+	public void testParcelableArrayListType() {
 		// parcelable arraylist also requires special care because the generic
 		// argument of the setter is a wildcard (<? extends Parcelable>)
-		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), ALWAYS, null,
+		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), TestEnvironment.ALWAYS, null,
 				ArrayList.class, PARCELABLES_CLASSES);
 
 	}
 
 	@Test
-	public void testSupportedArrayListTypes() throws Exception {
+	public void testSupportedArrayListTypes() {
 		testParameterizedTypes(n -> n.contains("ArrayList"),
 				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters), null,
 				ArrayList.class, String.class, Integer.class, CharSequence.class);
@@ -220,101 +218,46 @@ public class CodeGenerationTest extends TestBase {
 	}
 
 	@Test
-	public void testSimpleInheritance()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-		final JavaSource superClass = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(STRING_TYPE, "a", Retained.class));
-		final JavaSource subclass = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + "Client" + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(STRING_TYPE, "b", Retained.class)).superClass(superClass);
-
-		final MockedClasses classes = new MockedClasses(this, subclass, superClass);
-		classes.invokeSaveAndRestore();
-		verify(classes.mockedBundle, times(2)).putString(AdditionalMatchers.or(eq("a"), eq("b")),
-				any());
-		verify(classes.mockedBundle, times(2)).getString(AdditionalMatchers.or(eq("a"), eq("b")));
+	public void testSimpleInheritance() {
+		testInheritance(new RetainedField(String.class, "a"), new RetainedField(int.class, "b"));
 	}
 
 	@Test
-	public void testMultiLevelInheritance()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-
-		final JavaSource superClass = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(STRING_TYPE, "a", Retained.class));
-		final JavaSource subclass1 = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + "Client" + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(STRING_TYPE, "b", Retained.class)).superClass(superClass);
-
-		final JavaSource subclass2 = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + "Client" + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(STRING_TYPE, "c", Retained.class)).superClass(subclass1);
-
-		final MockedClasses classes = new MockedClasses(this, subclass2, subclass1, superClass);
-		classes.invokeSaveAndRestore();
-
-		final ArgumentCaptor<String> putCaptor = ArgumentCaptor.forClass(String.class);
-		final ArgumentCaptor<String> getCaptor = ArgumentCaptor.forClass(String.class);
-		verify(classes.mockedBundle, times(3)).putString(putCaptor.capture(), any());
-		verify(classes.mockedBundle, times(3)).getString(getCaptor.capture());
-
-		final List<String> names = Arrays.asList("a", "b", "c");
-
-		Assert.assertEquals("Some fields were not saved, ", names, putCaptor.getAllValues());
-		Assert.assertEquals("Some fields were not saved, ", names, getCaptor.getAllValues());
+	public void testMultiLevelInheritance() {
+		testInheritance(new RetainedField(String.class, "a"), new RetainedField(int.class, "b"),
+				new RetainedField(long.class, "c"));
 	}
 
 	@Test
-	public void testSameTypeFieldHiding()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-
-		final MockedClasses classes = createClassesWithFieldHiding(String.class, String.class);
-
-		ArgumentCaptor<String> putCaptor = ArgumentCaptor.forClass(String.class);
-		ArgumentCaptor<String> getCaptor = ArgumentCaptor.forClass(String.class);
-		verify(classes.mockedBundle, times(2)).putString(putCaptor.capture(), anyString());
-		verify(classes.mockedBundle, times(2)).getString(getCaptor.capture());
-		final List<String> putArgs = putCaptor.getAllValues();
-		final List<String> getArgs = getCaptor.getAllValues();
-		Assert.assertTrue("Field with the same name is saved with the same name causing "
-				+ "overwrites:" + putArgs, new HashSet<>(putArgs).size() == putArgs.size());
-		Assert.assertTrue("Field with the same name is saved with the same name causing "
-				+ "overwrites:" + getArgs, new HashSet<>(getArgs).size() == getArgs.size());
+	public void testMultiLevelInheritanceWithGap() {
+		testInheritance(new RetainedField(String.class, "a"), new Field(int.class, "b"),
+				new RetainedField(long.class, "c"));
 	}
 
 	@Test
-	public void testDifferentTypeFieldHiding()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-		final MockedClasses classes = createClassesWithFieldHiding(String.class, int.class);
+	public void testInheritanceWithoutAnnotations() {
+		testInheritance(new Field(int.class, "a"), new RetainedField(String.class, "b"));
+	}
 
-		ArgumentCaptor<String> putCaptorString = ArgumentCaptor.forClass(String.class);
-		ArgumentCaptor<String> getCaptorString = ArgumentCaptor.forClass(String.class);
-		ArgumentCaptor<String> putCaptorInt = ArgumentCaptor.forClass(String.class);
-		ArgumentCaptor<String> getCaptorInt = ArgumentCaptor.forClass(String.class);
-
-		verify(classes.mockedBundle, times(1)).putString(putCaptorString.capture(), anyString());
-		verify(classes.mockedBundle, times(1)).putInt(putCaptorInt.capture(), anyInt());
-		verify(classes.mockedBundle, times(1)).getString(getCaptorString.capture());
-		verify(classes.mockedBundle, times(1)).getInt(getCaptorInt.capture());
-
-		Assert.assertEquals(putCaptorString.getValue(), getCaptorString.getValue());
-		Assert.assertEquals(putCaptorInt.getValue(), getCaptorInt.getValue());
-
-		Assert.assertNotEquals(
-				"Field with the same name is saved with the same name causing overwrites:",
-				putCaptorString.getValue(), putCaptorInt.getValue());
-		Assert.assertNotEquals(
-				"Field with the same name is saved with the same name causing overwrites:",
-				getCaptorString.getValue(), getCaptorInt.getValue());
-
+	@Test
+	public void testFieldHiding() {
+		final RetainedField first = new RetainedField(String.class, "a");
+		final RetainedField second = new RetainedField(int.class, "a");
+		final TestEnvironment environment = testFieldHiding(first, second);
+		environment.invokeSaveAndRestore();
+		final AccessorKeyPair firstKeys = environment.captureTestCaseKeysWithField(first, n -> true,
+				TestEnvironment.CLASS);
+		final AccessorKeyPair secondKeys = environment.captureTestCaseKeysWithField(second,
+				n -> true, TestEnvironment.CLASS);
+		firstKeys.assertSameKeyUsed();
+		secondKeys.assertSameKeyUsed();
+		firstKeys.assertNotTheSame(secondKeys);
 	}
 
 	@Test
 	public void testGenericType()
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
 		testGenericType(Parcelable.class);
-
 	}
 
 	@Test
@@ -334,241 +277,309 @@ public class CodeGenerationTest extends TestBase {
 		return (T) clazz.newInstance();
 	}
 
-	enum Accessor {
-		PUT, GET
-	}
-
-	interface MethodVerifier {
-		void tryVerify(Method method, Accessor accessor, Type type) throws Exception;
-	}
-
-	private <A, B> MockedClasses createClassesWithFieldHiding(Class<A> first, Class<B> second)
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-		final JavaSource superClass = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(TypeName.get(first), "a", Retained.class));
+	private TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
+		final JavaSource superClass = new JavaSource(TEST_PACKAGE, generateClassName(),
+				Modifier.PUBLIC).fields(first.fieldSpecBuilder().build());
 		final JavaSource subclass = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + "Client" + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(TypeName.get(second), "a", Retained.class))
-						.superClass(superClass);
-
-		MockedClasses classes = new MockedClasses(this, subclass, superClass);
-		classes.invokeSaveAndRestore();
-		return classes;
+				TEST_CLASS + "Client" + generateClassName(), Modifier.PUBLIC)
+						.fields(second.fieldSpecBuilder().build()).superClass(superClass);
+		return new TestEnvironment(this, subclass, superClass);
 	}
 
-	private void testGenericType(Class<?>... input)
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
-		final TypeVariableName typeVariable = TypeVariableName.get("T", input);
-		final JavaSource source = new JavaSource(TEST_PACKAGE,
-				TEST_CLASS + classIdentifier.incrementAndGet(), Modifier.PUBLIC)
-						.fields(field(TypeVariableName.get("T"), "t", Retained.class))
-						.builderTransformer((b, s) -> b.addTypeVariable(typeVariable));
+	// generates a class for each field, each class extends the previous class;
+	// left most spec argument will be the top most class
+	private TestEnvironment testInheritance(Field first, Field... rest) {
+		final List<Field> fields = Lists.asList(first, rest);
+		JavaSource lastClass = null;
+		List<JavaSource> sources = new ArrayList<>();
+		for (Field field : fields) {
+			final JavaSource clazz = new JavaSource(TEST_PACKAGE, generateClassName(),
+					Modifier.PUBLIC).fields(field.createFieldSpec());
+			if (lastClass != null)
+				lastClass.superClass(clazz);
+			lastClass = clazz;
+			sources.add(clazz);
+		}
+		final TestEnvironment environment = new TestEnvironment(this, sources);
+		environment.invokeSaveAndRestore();
+		environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS, fields);
+		return environment;
+	}
 
-		final MockedClasses classes = new MockedClasses(this, source);
-		classes.invokeSaveAndRestore();
-		verify(classes.mockedBundle, times(1)).putParcelable(eq("t"), any());
-		verify(classes.mockedBundle, times(1)).getParcelable(eq("t"));
+	private void testGenericType(Class<?>... input) {
+		// we could make Field support <T> but that's too much effort for this
+		// single use case
+		final TypeVariableName typeVariable = TypeVariableName.get("T", input);
+		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
+				.fields(field(TypeVariableName.get("T"), "t", Retained.class))
+				.builderTransformer((b, s) -> b.addTypeVariable(typeVariable));
+
+		final TestEnvironment environment = new TestEnvironment(this, source);
+		environment.invokeSaveAndRestore();
+
+		verify(environment.mockedBundle, times(1)).putParcelable(eq("t"), any());
+		verify(environment.mockedBundle, times(1)).getParcelable(eq("t"));
 	}
 
 	private void testSimpleTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,
-			Function<Field, FieldSpec> fieldToSpec, Class<?>... differentTypes) throws Exception {
+			Function<Field, FieldSpec> fieldToSpec, Class<?>... differentTypes) {
 		Field[] fields = Arrays.stream(differentTypes).map(c -> new Field(c)).toArray(Field[]::new);
 		testTypes(namePredicate, accessorTypeFilter, fieldToSpec, fields);
-
 	}
 
 	private void testParameterizedTypes(Predicate<String> namePredicate,
 			FieldFilter accessorTypeFilter, Function<Field, FieldSpec> fieldToSpec,
-			Class<?> rawType, Class<?>... firstArgumentTypes) throws Exception {
+			Class<?> rawType, Class<?>... firstArgumentTypes) {
 		for (Class<?> types : firstArgumentTypes) {
 			testTypes(namePredicate, accessorTypeFilter, fieldToSpec, new Field(rawType, types));
 		}
 	}
 
 	private void testTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,
-			Function<Field, FieldSpec> fieldToSpec, Field... fields) throws Exception {
-
-		List<Field> fieldList = new ArrayList<>(Arrays.asList(fields));
+			Function<Field, FieldSpec> fieldToSpec, Field... fields) {
+		final HashSet<Field> set = Sets.newHashSet(fields);
+		if (set.size() != fields.length)
+			throw new IllegalArgumentException("Duplicate fields are not allowed");
 
 		// mockito explodes if the classes are not public...
-		final JavaSource source = new JavaSource("test", "Test" + classIdentifier.incrementAndGet(),
-				Modifier.PUBLIC)
-						.fields(fieldList.stream()
-								.map(f -> fieldToSpec != null ? fieldToSpec.apply(f)
-										: field(f.typeName(), f.name, Retained.class))
-								.collect(Collectors.toList()));
-
-		// System.out.println(source.generateSource());
-		final MockedClasses classes = new MockedClasses(this, source);
-		classes.invokeSaveAndRestore();
-		for (Accessor accessor : Accessor.values())
-			executeReflectedMethodInvocation(classes, fieldList, namePredicate, accessorTypeFilter,
-					accessor);
+		final JavaSource source = new JavaSource("test", generateClassName(), Modifier.PUBLIC)
+				.fields(set.stream()
+						.map(f -> fieldToSpec != null ? fieldToSpec.apply(f)
+								: field(f.typeName(), f.name, Retained.class))
+						.collect(Collectors.toList()));
+		final TestEnvironment environment = new TestEnvironment(this, source);
+		environment.invokeSaveAndRestore();
+		environment.testSaveRestoreInvocation(namePredicate, accessorTypeFilter, set);
 	}
 
-	private interface FieldFilter {
-		boolean test(Field field, Class<?> type, Type[] arguments);
-	}
+	public static class TestEnvironment {
 
-	static FieldFilter ALWAYS = (f, t, a) -> true;
-	static FieldFilter CLASS = (f, t, a) -> f.clazz.equals(t);
-	static FieldFilter ASSIGNABLE = (f, t, a) -> t.isAssignableFrom(f.clazz);
-
-	private void executeReflectedMethodInvocation(MockedClasses classes, List<Field> fieldList,
-			Predicate<String> namePredicate, FieldFilter accessorTypeFilter, Accessor accessor) {
-		List<Field> allFields = new ArrayList<>(fieldList);
-		for (Method method : Bundle.class.getMethods()) {
-			// wrong signature
-			if (!checkMethodIsAccessor(method, accessor, namePredicate))
-				continue;
-
-			// find methods who's accessor type matches the given fields
-			List<Field> matchingField = allFields.stream().filter(f -> {
-				Parameter[] parameters = method.getParameters();
-				Class<?> type = accessor == Accessor.PUT ? parameters[1].getType()
-						: method.getReturnType();
-				Type[] arguments = {};
-
-				final Type genericType = accessor == Accessor.PUT
-						? parameters[1].getParameterizedType() : method.getGenericReturnType();
-				if (genericType instanceof ParameterizedType) {
-					if (!f.generic()) {
-						return false;
-					}
-					arguments = ((ParameterizedType) genericType).getActualTypeArguments();
-				}
-
-				return accessorTypeFilter.test(f, type, arguments);
-
-			}).collect(Collectors.toList());
-
-			// no signature match
-			if (matchingField.isEmpty())
-				continue;
-
-			// more than one match, we should have exactly one match
-			if (matchingField.size() > 1) {
-				throw new AssertionError(method.toString() + " matches multiple field " + fieldList
-						+ ", this is ambiguous and should not happen");
-			}
-
-			final Field field = matchingField.get(0);
-
-			try {
-				if (accessor == Accessor.PUT) {
-					method.invoke(verify(classes.mockedBundle, times(1)), eq(field.name),
-							any(field.clazz));
-				} else {
-					method.invoke(verify(classes.mockedBundle, times(1)), eq(field.name));
-				}
-
-				allFields.remove(field);
-
-			} catch (Exception e) {
-				throw new RuntimeException("invocation of method " + method.getName()
-						+ " on mocked object " + "failed", e);
-			}
+		public enum Accessor {
+			PUT, GET
 		}
-		if (!allFields.isEmpty())
-			throw new RuntimeException("while testing for accessor:" + accessor
-					+ " some fields are untested :" + allFields);
-	}
 
-	private boolean checkMethodIsAccessor(Method m, Accessor accessor,
-			Predicate<String> namePredicate) {
-		final String name = m.getName();
-		boolean correctSignature = name.startsWith(accessor.name().toLowerCase())
-				&& name.length() > 3 && namePredicate.test(name)
-				&& m.getParameterCount() == (accessor == Accessor.PUT ? 2 : 1);
-		if (!correctSignature)
-			return false;
-		final Parameter[] parameters = m.getParameters();
-		return parameters[0].getType().equals(String.class);
-	}
-
-	public static class MockedClasses {
+		public interface FieldFilter {
+			boolean test(Field field, Class<?> type, Type[] arguments);
+		}
 
 		final Object mockedSource;
 		final Bundle mockedBundle;
 		final BundleRetainer<Object> retainer;
+		private final Result result;
 
-		public MockedClasses(TestBase base, JavaSource source, JavaSource... required)
-				throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+		public TestEnvironment(TestBase base, List<JavaSource> sources) {
 
-			ArrayList<JavaSource> sources = new ArrayList<>(Arrays.asList(required));
-			sources.add(source);
-
-			final ClassLoader loader = CompilerUtils.compile(
-					Thread.currentThread().getContextClassLoader(), base.processors(),
-					sources.stream().map(JavaSource::generateFileObject)
+			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
+					base.processors(), sources.stream().map(JavaSource::generateFileObject)
 							.toArray(JavaFileObject[]::new));
-
-			final Class<?> testClass = loader.loadClass(source.fqcn());
-			final Class<?> generatedClass = loader
-					.loadClass(Akatsuki.generateRetainerClassName(source.fqcn()));
-			retainer = newInstance(generatedClass);
-			mockedSource = mock(testClass);
-			mockedBundle = mock(Bundle.class);
-		}
-
-		public void invokeSaveAndRestore() {
-			retainer.save(mockedSource, mockedBundle);
-			retainer.restore(mockedSource, mockedBundle);
-		}
-
-	}
-
-	public static final class Field {
-		public final Class<?> clazz;
-		public final Class<?>[] parameters;
-		public final String name;
-
-		public Field(Class<?> clazz, Class<?>... parameters) {
-			this.clazz = clazz;
-			this.parameters = parameters;
-			this.name = "_" + createName(clazz, parameters);
-		}
-
-		private static String createName(Class<?> clazz, Class<?>... parameters) {
-			if (clazz.isArray()) {
-				return createName(clazz.getComponentType(), parameters) + "Array";
-			} else {
-				return parameters.length == 0 ? clazz.getSimpleName()
-						: Arrays.stream(parameters).map(p -> createName(p))
-								.collect(Collectors.joining()) + createName(clazz);
+			final Class<?> testClass;
+			try {
+				final String fqcn = sources.get(0).fqcn();
+				testClass = result.classLoader.loadClass(fqcn);
+				final Class<?> generatedClass = result.classLoader
+						.loadClass(Akatsuki.generateRetainerClassName(fqcn));
+				retainer = newInstance(generatedClass);
+				mockedSource = mock(testClass);
+				mockedBundle = mock(Bundle.class);
+			} catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+				throw new RuntimeException(
+						"Compilation was successful but an error occurred while setting up the test environment."
+								+ printAllSources(),
+						e);
 			}
 		}
 
-		public boolean generic() {
-			return parameters.length > 0;
+		public TestEnvironment(TestBase base, JavaSource source, JavaSource... required) {
+			this(base, Lists.asList(source, required));
 		}
 
-		public TypeName typeName() {
-			return generic() ? ParameterizedTypeName.get(clazz, parameters) : TypeName.get(clazz);
+		public void invokeSave() {
+			try {
+				retainer.save(mockedSource, mockedBundle);
+			} catch (Exception e) {
+				throw new AssertionError("Unable to invoke save. " + printAllSources(), e);
+			}
+
 		}
 
-		@Override
-		public boolean equals(Object o) {
-			if (this == o)
-				return true;
-			if (o == null || getClass() != o.getClass())
+		public void invokeRestore() {
+			try {
+				retainer.restore(mockedSource, mockedBundle);
+			} catch (Exception e) {
+				throw new AssertionError("Unable to invoke restore. " + printAllSources(), e);
+			}
+		}
+
+		public void invokeSaveAndRestore() {
+			invokeSave();
+			invokeRestore();
+		}
+
+		public String printAllSources() {
+			return result.printAllSources();
+		}
+
+		public void testSaveRestoreInvocation(Predicate<String> namePredicate,
+				FieldFilter accessorTypeFilter, Set<Field> fields) {
+			for (Accessor accessor : Accessor.values()) {
+				executeTestCaseWithFields(fields, namePredicate, accessorTypeFilter, accessor);
+			}
+		}
+
+		public void testSaveRestoreInvocation(Predicate<String> namePredicate,
+				FieldFilter accessorTypeFilter, List<? extends Field> fields) {
+			final HashSet<Field> set = Sets.newHashSet(fields);
+			if (set.size() != fields.size())
+				throw new IllegalArgumentException("Duplicate fields are not allowed");
+			testSaveRestoreInvocation(namePredicate, accessorTypeFilter, set);
+		}
+
+		static FieldFilter ALWAYS = (f, t, a) -> true;
+		static FieldFilter CLASS = (f, t, a) -> f.clazz.equals(t);
+		static FieldFilter ASSIGNABLE = (f, t, a) -> t.isAssignableFrom(f.clazz);
+
+		public static class AccessorKeyPair {
+			public final String putKey;
+			public final String getKey;
+
+			public AccessorKeyPair(String putKey, String getKey) {
+				this.putKey = putKey;
+				this.getKey = getKey;
+			}
+
+			public void assertSameKeyUsed() {
+				Assert.assertEquals("Same key expected", putKey, getKey);
+			}
+
+			public void assertNotTheSame(AccessorKeyPair another) {
+				Assert.assertNotEquals("Different keys expected", putKey, another.putKey);
+				Assert.assertNotEquals("Different keys expected", getKey, another.getKey);
+			}
+
+		}
+
+		public AccessorKeyPair captureTestCaseKeysWithField(Field field,
+				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter) {
+			return new AccessorKeyPair(
+					captureTestCaseKeyWithField(field, methodNamePredicate, accessorTypeFilter,
+							Accessor.PUT),
+					captureTestCaseKeyWithField(field, methodNamePredicate, accessorTypeFilter,
+							Accessor.GET));
+		}
+
+		public String captureTestCaseKeyWithField(Field field,
+				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter,
+				Accessor accessor) {
+			final ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+			for (Method method : Bundle.class.getMethods()) {
+				// check correct signature, name predicate and type
+				if (!checkMethodIsAccessor(method, accessor)
+						|| !methodNamePredicate.test(method.getName())
+						|| !filterTypes(method, accessor, accessorTypeFilter, field))
+					continue;
+				try {
+					if (accessor == Accessor.PUT) {
+						method.invoke(verify(mockedBundle, atLeastOnce()), captor.capture(),
+								any(field.clazz));
+					} else {
+						method.invoke(verify(mockedBundle, atLeastOnce()), captor.capture());
+					}
+					return captor.getValue();
+				} catch (Exception e) {
+					throw new AssertionError("Invocation of method " + method.getName()
+							+ " on mocked object " + "failed." + printAllSources(), e);
+				}
+			}
+			throw new RuntimeException(
+					"No invocation caught for field: " + field.toString() + printAllSources());
+		}
+
+		private void executeTestCaseWithFields(Set<? extends Field> fieldList,
+				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter,
+				Accessor accessor) {
+			Set<Field> allFields = new HashSet<>(fieldList.stream()
+					.filter(f -> f instanceof RetainedField).collect(Collectors.toList()));
+			for (Method method : Bundle.class.getMethods()) {
+
+				// check correct signature and name predicate
+				if (!checkMethodIsAccessor(method, accessor)
+						|| !methodNamePredicate.test(method.getName()))
+					continue;
+
+				// find methods who's accessor type matches the given fields
+				List<Field> matchingField = allFields.stream()
+						.filter(f -> filterTypes(method, accessor, accessorTypeFilter, f))
+						.collect(Collectors.toList());
+
+				// no signature match
+				if (matchingField.isEmpty())
+					continue;
+
+				// more than one match, we should have exactly one match
+				if (matchingField.size() > 1) {
+					throw new AssertionError(method.toString() + " matches multiple field "
+							+ fieldList + ", this is ambiguous and should not happen."
+							+ printAllSources());
+				}
+				final Field field = matchingField.get(0);
+				try {
+					if (accessor == Accessor.PUT) {
+						method.invoke(verify(mockedBundle, times(1)), eq(field.name),
+								any(field.clazz));
+					} else {
+						method.invoke(verify(mockedBundle, times(1)), eq(field.name));
+					}
+					allFields.remove(field);
+
+				} catch (Exception e) {
+					throw new AssertionError("Invocation of method " + method.getName()
+							+ " on mocked object " + "failed." + printAllSources(), e);
+				}
+			}
+			if (!allFields.isEmpty())
+				throw new RuntimeException("While testing for accessor:" + accessor
+						+ " some fields are left untested because a suitable accessor cannot be found: "
+						+ allFields + printAllSources());
+		}
+
+		private boolean filterTypes(Method method, Accessor accessor,
+				FieldFilter accessorTypeFilter, Field field) {
+			Parameter[] parameters = method.getParameters();
+			Class<?> type = accessor == Accessor.PUT ? parameters[1].getType()
+					: method.getReturnType();
+			Type[] arguments = {};
+			final Type genericType = accessor == Accessor.PUT ? parameters[1].getParameterizedType()
+					: method.getGenericReturnType();
+			if (genericType instanceof ParameterizedType) {
+				// if field is not generic while accessor type is, bail
+				if (!field.generic()) {
+					return false;
+				}
+				// or else record the type argument for the filter
+				arguments = ((ParameterizedType) genericType).getActualTypeArguments();
+			}
+			return accessorTypeFilter.test(field, type, arguments);
+		}
+
+		private boolean checkMethodIsAccessor(Method method, Accessor accessor) {
+			// Bundle accessor format:
+			// put<Suffix>(String key, <Type>) : void
+			// get<Suffix>(String key) : <Type>
+			// the following are strictly obeyed
+			// first parameter will always be a string
+			// getter has 1 argument, setter has 2
+			// must start with "put" for getter ans "set" for setter
+			// <Suffix> cannot be empty
+			final String name = method.getName();
+			boolean correctSignature = name.startsWith(accessor.name().toLowerCase())
+					&& name.length() > accessor.name().length()
+					&& method.getParameterCount() == (accessor == Accessor.PUT ? 2 : 1);
+			if (!correctSignature)
 				return false;
-			Field field = (Field) o;
-			return Objects.equal(clazz, field.clazz) && Objects.equal(parameters, field.parameters)
-					&& Objects.equal(name, field.name);
+			final Parameter[] parameters = method.getParameters();
+			return parameters[0].getType().equals(String.class);
 		}
 
-		@Override
-		public int hashCode() {
-			return Objects.hashCode(clazz, parameters, name);
-		}
-
-		@Override
-		public String toString() {
-			return MoreObjects.toStringHelper(this).add("clazz", clazz)
-					.add("parameters", parameters).add("name", name).toString();
-		}
 	}
 
 }

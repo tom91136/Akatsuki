@@ -1,7 +1,6 @@
 package com.sora.util.akatsuki.compiler;
 
 import com.sora.util.akatsuki.Retained;
-import com.sora.util.akatsuki.compiler.CodeGenUtils.JavaSource;
 import com.squareup.javapoet.FieldSpec;
 
 import org.junit.experimental.runners.Enclosed;

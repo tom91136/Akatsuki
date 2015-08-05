@@ -186,7 +186,7 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 		}
 	}
 
-	private static final class InMemoryJavaFileObject extends SimpleJavaFileObject
+	static final class InMemoryJavaFileObject extends SimpleJavaFileObject
 			implements JavaFileObject {
 		private long lastModified = 0L;
 		private Optional<ByteSource> data = Optional.absent();
@@ -274,22 +274,34 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 		public String toString() {
 			final ToStringHelper helper = MoreObjects.toStringHelper(this).add("uri", toUri())
 					.add("kind", kind).add("lastModified", lastModified);
-			try {
-				if (kind.extension.equals(".java") && data.isPresent()) {
-					final ImmutableList<String> lines = data.get()
-							.asCharSource(Charset.defaultCharset()).readLines();
-					StringBuilder builder = new StringBuilder();
-					for (int i = 0; i < lines.size(); i++) {
-						String line = lines.get(i);
-						builder.append("\n").append(i).append('.').append(line);
-					}
-
-					helper.add("source", builder.toString());
-				}
-			} catch (IOException e) {
-
-			}
 			return helper.toString();
+		}
+
+		public boolean isSource() {
+			return kind.extension.equals(".java");
+		}
+
+		public void printSource(Writer writer) throws IOException {
+			if (!isSource())
+				throw new IllegalStateException(
+						"cannot print file " + toUri() + ", not a source file");
+			if (!data.isPresent())
+				throw new IllegalStateException("file " + toUri() + " is not written yet");
+
+			final ByteSource byteSource = data.orNull();
+			if (byteSource == null)
+				throw new IOException("unable to read file " + toUri() + ", stream not ready");
+
+			final ImmutableList<String> lines = data.get().asCharSource(Charset.defaultCharset())
+					.readLines();
+			// get the number of digits
+			String format = String.format("%%0%dd", String.valueOf(lines.size()).length());
+			for (int i = 0; i < lines.size(); i++) {
+				// TODO bad performance, use something better than String.format
+				writer.append(String.format(format, i + 1)).append('.').append(lines.get(i));
+				if (i != lines.size() - 1)
+					writer.append("\n");
+			}
 		}
 
 	}
