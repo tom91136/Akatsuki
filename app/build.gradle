@@ -3,10 +3,10 @@ apply plugin: 'com.neenbedankt.android-apt'
 
 android {
     compileSdkVersion 22
-    buildToolsVersion "23.0.0 rc3"
+    buildToolsVersion "22.0.1"
 
     defaultConfig {
-        applicationId "akatsuki.util.sora.com.akatsuki"
+        applicationId "com.sora.util.akatsuki.app"
         minSdkVersion 15
         targetSdkVersion 22
         versionCode 1
