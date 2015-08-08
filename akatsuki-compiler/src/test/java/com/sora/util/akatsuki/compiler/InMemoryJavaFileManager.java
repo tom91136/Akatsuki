@@ -264,7 +264,6 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 
 		@Override
 		public boolean delete() {
-			System.out.println("delete obj->" + this);
 			this.data = Optional.absent();
 			this.lastModified = 0L;
 			return true;
