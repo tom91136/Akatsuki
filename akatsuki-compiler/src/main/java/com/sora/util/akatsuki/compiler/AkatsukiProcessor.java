@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -135,24 +134,17 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 	private List<DeclaredConverterModel> findDeclaredConverters(RoundEnvironment roundEnv) {
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
-		final List<? extends Element> invalidElements = elements.stream().filter(
-				e -> !utils().isAssignable(utils().of(TypeConverter.class), e.asType(), true))
-				.collect(Collectors.toList());
-		if (!invalidElements.isEmpty()) {
-			// we have incorrectly annotated elements
-			invalidElements.stream()
-					.forEach(e -> messager().printMessage(Kind.ERROR,
-							"@DeclaredConverter can only be used on types that implement "
-									+ "TypeConverter",
-							e));
-			return Collections.emptyList();
-		} else {
-			// good to go
-			return invalidElements.stream()
-					.map(e -> new DeclaredConverterModel((DeclaredType) e,
-							e.getAnnotation(DeclaredConverter.class).value()))
-					.collect(Collectors.toList());
+		for (Element element : elements) {
+			if (!utils().isAssignable(utils().of(TypeConverter.class), element.asType(), true)) {
+				messager().printMessage(Kind.ERROR,
+						"@DeclaredConverter can only be used on types that implement TypeConverter",
+						element);
+			}
 		}
+		return elements.stream()
+				.map(e -> new DeclaredConverterModel((DeclaredType) e,
+						e.getAnnotation(DeclaredConverter.class).value()))
+				.collect(Collectors.toList());
 	}
 
 	@Override
