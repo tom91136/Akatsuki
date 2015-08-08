@@ -135,7 +135,7 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 	private List<DeclaredConverterModel> findDeclaredConverters(RoundEnvironment roundEnv) {
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
-		final List<Element> invalidElements = elements.stream().filter(
+		final List<? extends Element> invalidElements = elements.stream().filter(
 				e -> !utils().isAssignable(utils().of(TypeConverter.class), e.asType(), true))
 				.collect(Collectors.toList());
 		if (!invalidElements.isEmpty()) {
