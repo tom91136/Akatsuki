@@ -41,11 +41,15 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
+import com.sora.util.akatsuki.RetainConfig;
+import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.RetainerCache;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.AccessorKeyPair;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.FieldFilter;
 import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
 import com.sora.util.akatsuki.compiler.Field.RetainedField;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.TypeVariableName;
@@ -219,24 +223,30 @@ public class CodeGenerationTest extends TestBase {
 
 	@Test
 	public void testSimpleInheritance() {
-		testInheritance(new RetainedField(String.class, "a"), new RetainedField(int.class, "b"));
+		testInheritance(true, new RetainedField(String.class, "a"),
+				new RetainedField(int.class, "b"));
 	}
 
 	@Test
 	public void testMultiLevelInheritance() {
-		testInheritance(new RetainedField(String.class, "a"), new RetainedField(int.class, "b"),
-				new RetainedField(long.class, "c"));
+		testInheritance(true, new RetainedField(String.class, "a"),
+				new RetainedField(int.class, "b"), new RetainedField(long.class, "c"));
 	}
 
 	@Test
 	public void testMultiLevelInheritanceWithGap() {
-		testInheritance(new RetainedField(String.class, "a"), new Field(int.class, "b"),
+		testInheritance(true, new RetainedField(String.class, "a"), new Field(int.class, "b"),
 				new RetainedField(long.class, "c"));
 	}
 
 	@Test
 	public void testInheritanceWithoutAnnotations() {
-		testInheritance(new Field(int.class, "a"), new RetainedField(String.class, "b"));
+		testInheritance(true, new Field(int.class, "a"), new RetainedField(String.class, "b"));
+	}
+
+	@Test
+	public void testInheritanceWithoutAnnotationsAndCache() {
+		testInheritance(false, new Field(int.class, "a"), new RetainedField(String.class, "b"));
 	}
 
 	@Test
@@ -288,7 +298,7 @@ public class CodeGenerationTest extends TestBase {
 
 	// generates a class for each field, each class extends the previous class;
 	// left most spec argument will be the top most class
-	private TestEnvironment testInheritance(Field first, Field... rest) {
+	private TestEnvironment testInheritance(boolean cache, Field first, Field... rest) {
 		final List<Field> fields = Lists.asList(first, rest);
 		JavaSource lastClass = null;
 		List<JavaSource> sources = new ArrayList<>();
@@ -299,6 +309,15 @@ public class CodeGenerationTest extends TestBase {
 				lastClass.superClass(clazz);
 			lastClass = clazz;
 			sources.add(clazz);
+		}
+		if (!cache) {
+			sources.get(0)
+					.builderTransformer(
+							(builder,
+									s) -> builder.addAnnotation(AnnotationSpec
+											.builder(RetainConfig.class).addMember("optimisation",
+													"$T.$L", Optimisation.class, Optimisation.NONE)
+									.build()));
 		}
 		final TestEnvironment environment = new TestEnvironment(this, sources);
 		environment.invokeSaveAndRestore();
@@ -368,7 +387,6 @@ public class CodeGenerationTest extends TestBase {
 		private final Result result;
 
 		public TestEnvironment(TestBase base, List<JavaSource> sources) {
-
 			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 					base.processors(), sources.stream().map(JavaSource::generateFileObject)
 							.toArray(JavaFileObject[]::new));
@@ -376,12 +394,20 @@ public class CodeGenerationTest extends TestBase {
 			try {
 				final String fqcn = sources.get(0).fqcn();
 				testClass = result.classLoader.loadClass(fqcn);
-				final Class<?> generatedClass = result.classLoader
-						.loadClass(Akatsuki.generateRetainerClassName(fqcn));
-				retainer = newInstance(generatedClass);
+
+				RetainerCache retainerCache = null;
+				try {
+					final Class<?> retainerCacheClass = result.classLoader.loadClass(
+							Akatsuki.RETAINER_CACHE_PACKAGE + "." + Akatsuki.RETAINER_CACHE_NAME);
+					retainerCache = (RetainerCache) retainerCacheClass.newInstance();
+				} catch (Exception ignored) {
+					// doesn't really matter
+				}
+				retainer = Akatsuki.createRetainer(result.classLoader, retainerCache, fqcn,
+						testClass);
 				mockedSource = mock(testClass);
 				mockedBundle = mock(Bundle.class);
-			} catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+			} catch (Exception e) {
 				throw new RuntimeException(
 						"Compilation was successful but an error occurred while setting up the test environment."
 								+ printAllSources(),

@@ -5,6 +5,7 @@ import com.google.common.base.MoreObjects;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.DummyTypeConverter;
+import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TypeConstraint;
@@ -15,6 +16,7 @@ import com.sora.util.akatsuki.compiler.transformations.CollectionTransformation;
 import com.sora.util.akatsuki.compiler.transformations.ConverterTransformation;
 import com.sora.util.akatsuki.compiler.transformations.FieldTransformation;
 import com.sora.util.akatsuki.compiler.transformations.FieldTransformation.Invocation;
+import com.sora.util.akatsuki.compiler.transformations.GenericTransformation;
 import com.sora.util.akatsuki.compiler.transformations.NestedTransformation;
 import com.sora.util.akatsuki.compiler.transformations.ObjectTransformation;
 import com.sora.util.akatsuki.compiler.transformations.PrimitiveTransformation;
@@ -32,10 +34,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.processing.Filer;
+import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -53,11 +60,10 @@ import javax.tools.Diagnostic.Kind;
  */
 public class BundleRetainerModel {
 
-	// public final ClassSpec clazz;
-	// public final ClassSpec superClass;
-	// public final String actualClass;
+	private static final Set<Modifier> DISALLOWED_MODIFIERS = EnumSet.of(Modifier.FINAL,
+			Modifier.STATIC, Modifier.PRIVATE);
 
-	private final String generatedSimpleName;
+	private final String generatedClassName;
 	private final String generatedFqpn;
 	private final ProcessorContext context;
 	private final TypeElement enclosingClass;
@@ -65,18 +71,15 @@ public class BundleRetainerModel {
 
 	public final List<Field> fields = new ArrayList<>();
 
-	// public BundleRetainerModel(ClassSpec clazz, ClassSpec superClass, String
-	// actualClass) {
-	// this.clazz = clazz;
-	// this.superClass = superClass;
-	// this.actualClass = actualClass;
-	// }
+	public static class FqcnModelMap extends HashMap<String, BundleRetainerModel> {
 
-	public BundleRetainerModel(ProcessorContext context, TypeElement enclosingClass) {
+	}
+
+	private BundleRetainerModel(ProcessorContext context, TypeElement enclosingClass) {
 		this.context = context;
 		this.enclosingClass = enclosingClass;
 		this.generatedFqpn = context.elements().getPackageOf(enclosingClass).toString();
-		this.generatedSimpleName = createGeneratedClassName();
+		this.generatedClassName = createGeneratedClassName();
 	}
 
 	private String createGeneratedClassName() {
@@ -92,8 +95,119 @@ public class BundleRetainerModel {
 		return Akatsuki.generateRetainerClassName(enclosingName);
 	}
 
-	public void processFieldHiding(Map<String, BundleRetainerModel> cache) {
-		context.messager().printMessage(Kind.NOTE, "analyzing class " + enclosingClass.toString());
+	public TypeElement enclosingClass() {
+		return enclosingClass;
+	}
+
+	public String fqcn() {
+		return generatedFqpn + "." + generatedClassName;
+	}
+
+	// create our model here
+	public static FqcnModelMap findRetainedFields(ProcessorContext context,
+			RoundEnvironment roundEnv) {
+		final Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Retained.class);
+		FqcnModelMap fqcnMap = new FqcnModelMap();
+		int processed = 0;
+		boolean verifyOnly = false;
+		for (Element field : elements) {
+
+			// skip if error
+			if (!annotatedElementValid(context, field) || !enclosingClassValid(context, field)) {
+				verifyOnly = true;
+				continue;
+			}
+
+			// >= 1 error has occurred, we're in verify mode
+			if (!verifyOnly) {
+
+				final TypeElement enclosingClass = (TypeElement) field.getEnclosingElement();
+
+				final Retained retained = field.getAnnotation(Retained.class);
+
+				// transient marks the field as skipped
+				if (!retained.skip() && !field.getModifiers().contains(Modifier.TRANSIENT)) {
+					final BundleRetainerModel model = fqcnMap.computeIfAbsent(
+							enclosingClass.getQualifiedName().toString(),
+							k -> new BundleRetainerModel(context, enclosingClass));
+					final DeclaredType type = context.utils()
+							.getClassFromAnnotationMethod(retained::converter);
+					model.fields.add(new Field((VariableElement) field, type));
+				}
+			}
+			processed++;
+		}
+
+		if (processed != elements.size()) {
+			context.messager().printMessage(Kind.NOTE,
+					(elements.size() - processed)
+							+ " error(s) occurred, no files are generated after the first "
+							+ "error has occurred.");
+		} else {
+			// stage 2, mark any fields that got hidden
+			fqcnMap.values().stream().forEach(m -> m.processFieldHiding(fqcnMap));
+		}
+
+		return verifyOnly ? null : fqcnMap;
+	}
+
+	private static boolean annotatedElementValid(ProcessorContext context, Element element) {
+		// sanity check
+		if (!element.getKind().equals(ElementKind.FIELD)) {
+			context.messager().printMessage(Kind.ERROR, "annotated target must be a field",
+					element);
+			return false;
+		}
+
+		// check for invalid modifiers, we can only create classes in the
+		// same package
+		if (!Collections.disjoint(element.getModifiers(), DISALLOWED_MODIFIERS)) {
+			context.messager().printMessage(Kind.ERROR,
+					"field with " + DISALLOWED_MODIFIERS.toString() + " cannot be retained",
+					element);
+			return false;
+		}
+		return true;
+	}
+
+	private static boolean enclosingClassValid(ProcessorContext context, Element element) {
+		Element enclosingElement = element.getEnclosingElement();
+		while (enclosingElement != null) {
+			// skip until we find a class
+			if (!enclosingElement.getKind().equals(ElementKind.CLASS))
+				break;
+
+			if (!enclosingElement.getKind().equals(ElementKind.CLASS)) {
+				context.messager().printMessage(Kind.ERROR,
+						"enclosing element(" + enclosingElement.toString() + ") is not a class",
+						element);
+				return false;
+			}
+
+			TypeElement enclosingClass = (TypeElement) enclosingElement;
+
+			// protected, package-private, and public all allow same package
+			// access
+			if (enclosingClass.getModifiers().contains(Modifier.PRIVATE)) {
+				context.messager().printMessage(Kind.ERROR,
+						"enclosing class (" + enclosingElement.toString() + ") cannot be private",
+						element);
+				return false;
+			}
+
+			if (enclosingClass.getNestingKind() != NestingKind.TOP_LEVEL
+					&& !enclosingClass.getModifiers().contains(Modifier.STATIC)) {
+				context.messager().printMessage(Kind.ERROR,
+						"enclosing class is nested but not static", element);
+				return false;
+			}
+			enclosingElement = enclosingClass.getEnclosingElement();
+		}
+
+		return true;
+	}
+
+	public void processFieldHiding(FqcnModelMap map) {
 		TypeElement superClass = enclosingClass;
 		final TypeMirror objectMirror = context.utils().of(Object.class);
 		while ((superClass.getKind() == ElementKind.CLASS && !superClass.equals(objectMirror))) {
@@ -102,14 +216,11 @@ public class BundleRetainerModel {
 				break;
 			}
 			superClass = (TypeElement) superElement;
-			final BundleRetainerModel model = cache.get(superClass.getQualifiedName().toString());
+			final BundleRetainerModel model = map.get(superClass.getQualifiedName().toString());
 			if (model != null) {
 				// we found our closest super class
 				if (this.superModel == null)
 					this.superModel = model;
-
-				context.messager().printMessage(Kind.NOTE,
-						"\tsuper->" + model.enclosingClass.toString());
 				fields.stream().filter(Field::notHidden).forEach(field -> {
 					final boolean collision = model.fields.stream().anyMatch(
 							superField -> superField.fieldName().equals(field.fieldName()));
@@ -180,8 +291,8 @@ public class BundleRetainerModel {
 					strategy = new ObjectTransformation(context);
 				} else if (mirror.getKind().equals(TypeKind.TYPEVAR)) {
 					// we got a generic type of some bounds
-					strategy = new com.sora.util.akatsuki.compiler.transformations.GenericTransformation(
-							context, field, this::findTransformationStrategy);
+					strategy = new GenericTransformation(context, field,
+							this::findTransformationStrategy);
 				}
 			}
 
@@ -230,8 +341,7 @@ public class BundleRetainerModel {
 	}
 
 	public void writeSourceToFile(Filer filer, List<TransformationTemplate> templates,
-			Map<String, BundleRetainerModel> cache, List<DeclaredConverterModel> models)
-					throws IOException {
+			FqcnModelMap map, List<DeclaredConverterModel> models) throws IOException {
 
 		String sourceName = "source";
 		String bundleName = "bundle";
@@ -268,7 +378,7 @@ public class BundleRetainerModel {
 		}
 
 		final TypeResolvingContext resolvingContext = new TypeResolvingContext(templates, models,
-				cache, context);
+				map, context);
 
 		for (Field field : fields) {
 
@@ -291,7 +401,6 @@ public class BundleRetainerModel {
 					restoreMethodBuilder
 							.addStatement(JavaPoetUtils.escapeStatement(restore.create()));
 				} catch (Exception e) {
-					e.printStackTrace();
 					context.messager().printMessage(Kind.ERROR, "an exception occurred: " + e,
 							field.element());
 				}
@@ -300,14 +409,14 @@ public class BundleRetainerModel {
 
 		// generate class name here
 
-		TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(generatedSimpleName)
+		TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(generatedClassName)
 				.addModifiers(Modifier.PUBLIC).addMethod(saveMethodBuilder.build())
 				.addMethod(restoreMethodBuilder.build()).addTypeVariable(actualClassCapture);
 
 		if (superModel != null) {
 
 			final ClassName className = ClassName.get(superModel.generatedFqpn,
-					superModel.generatedSimpleName);
+					superModel.generatedClassName);
 
 			typeSpecBuilder
 					.superclass(ParameterizedTypeName.get(className, TypeVariableName.get("T")));
@@ -324,7 +433,7 @@ public class BundleRetainerModel {
 
 	@Override
 	public String toString() {
-		return MoreObjects.toStringHelper(this).add("generatedSimpleName", generatedSimpleName)
+		return MoreObjects.toStringHelper(this).add("generatedClassName", generatedClassName)
 				.add("generatedFqpn", generatedFqpn).add("context", context)
 				.add("enclosingClass", enclosingClass).add("superModel", superModel)
 				.add("fields", fields).toString();

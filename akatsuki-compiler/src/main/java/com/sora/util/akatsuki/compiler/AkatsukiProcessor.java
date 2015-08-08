@@ -3,18 +3,17 @@ package com.sora.util.akatsuki.compiler;
 import com.google.auto.service.AutoService;
 import com.sora.util.akatsuki.DeclaredConverter;
 import com.sora.util.akatsuki.IncludeClasses;
-import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.RetainConfig;
+import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TypeConverter;
-import com.sora.util.akatsuki.compiler.BundleRetainerModel.Field;
+import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,11 +28,7 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -42,13 +37,12 @@ import javax.tools.Diagnostic.Kind;
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 @SupportedAnnotationTypes({ "com.sora.util.akatsuki.Retained",
-		"com.sora.util.akatsuki" + ".TransformationTemplate" })
+		"com.sora.util.akatsuki.TransformationTemplate", "com.sora.util.akatsuki.IncludeClasses",
+		"com.sora.util.akatsuki.DeclaredConverter", "com.sora.util.akatsuki.TypeConstraint",
+		"com.sora.util.akatsuki.RetainConfig" })
 public class AkatsukiProcessor extends AbstractProcessor implements ProcessorContext {
 
 	private static final boolean DEBUG = false;
-
-	private static final Set<Modifier> DISALLOWED_MODIFIERS = EnumSet.of(Modifier.FINAL,
-			Modifier.STATIC, Modifier.PRIVATE);
 
 	private ProcessorUtils utils;
 
@@ -61,26 +55,56 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-
+		// NOTE: process gets called multiple times if any other annotation
+		// processor exists
 		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
 		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
-		final HashMap<String, BundleRetainerModel> map = findRetainedFields(roundEnv);
+		final FqcnModelMap map = BundleRetainerModel.findRetainedFields(this, roundEnv);
+
+		final List<RetainConfig> configs = findAnnotations(
+				roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
+		if (configs.size() > 1) {
+			messager().printMessage(Kind.ERROR,
+					"Multiple @RetainConfig found, you can only have one config. Found:"
+							+ configs.toString());
+		}
 
 		if (map == null) {
 			messager().printMessage(Kind.ERROR, "verification failed");
 			return true;
 		}
 
-		map.values().stream().forEach(m -> {
-			messager().printMessage(Kind.OTHER, m.toString());
+		if (map.isEmpty()) {
+			messager().printMessage(Kind.NOTE,
+					"round has no elements, classes possibly originated from another annotation processor. "
+							+ "Root:" + annotations);
+			return false;
+		}
 
+		map.values().stream().forEach(m -> {
+			//messager().printMessage(Kind.OTHER, m.toString());
 			try {
-				m.writeSourceToFile(processingEnv.getFiler(), templates,map,  declaredConverters);
+				m.writeSourceToFile(processingEnv.getFiler(), templates, map, declaredConverters);
 			} catch (IOException e) {
-				e.printStackTrace();
+				messager().printMessage(Kind.ERROR,
+						"An error occurred while writing file: " + m.fqcn());
+				throw new RuntimeException(e);
 			}
 		});
 
+		final Optimisation optimisation = configs.isEmpty() ? Optimisation.ALL
+				: configs.get(0).optimisation();
+
+		if (optimisation != Optimisation.NONE) {
+			try {
+				new RetainerMappingModel(this).writeSourceToFile(processingEnv.getFiler(), map,
+						roundEnv.getRootElements(), optimisation);
+			} catch (IOException e) {
+				messager().printMessage(Kind.ERROR, "An error occurred while writing cache class, "
+						+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
+				throw new RuntimeException(e);
+			}
+		}
 		return true;
 	}
 
@@ -130,116 +154,6 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 							e.getAnnotation(DeclaredConverter.class).value()))
 					.collect(Collectors.toList());
 		}
-	}
-
-	// create our model here
-	private HashMap<String, BundleRetainerModel> findRetainedFields(RoundEnvironment roundEnv) {
-		final Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Retained.class);
-		HashMap<String, BundleRetainerModel> fqcnMap = new HashMap<>();
-
-		int processed = 0;
-		boolean verifyOnly = false;
-		for (Element field : elements) {
-
-			// skip if error
-			if (!annotatedElementValid(field) || !enclosingClassValid(field)) {
-				verifyOnly = true;
-				continue;
-			}
-
-			// >= 1 error has occurred, we're in verify mode
-			if (!verifyOnly) {
-
-				final TypeElement enclosingClass = (TypeElement) field.getEnclosingElement();
-
-				final Retained retained = field.getAnnotation(Retained.class);
-
-				// transient marks the field as skipped
-				if (!retained.skip() && !field.getModifiers().contains(Modifier.TRANSIENT)) {
-					final BundleRetainerModel model = fqcnMap.computeIfAbsent(
-							enclosingClass.getQualifiedName().toString(),
-							k -> new BundleRetainerModel(this, enclosingClass));
-					final DeclaredType type = utils()
-							.getClassFromAnnotationMethod(retained::converter);
-					model.fields.add(new Field((VariableElement) field, type));
-				}
-			}
-			processed++;
-		}
-
-		if (processed != elements.size()) {
-			messager().printMessage(Kind.NOTE,
-					(elements.size() - processed)
-							+ " error(s) occurred, no files are generated after the first "
-							+ "error has occurred.");
-		} else {
-			// stage 2, mark any fields that got hidden
-			fqcnMap.values().stream().forEach(m -> m.processFieldHiding(fqcnMap));
-		}
-
-		return verifyOnly ? null : fqcnMap;
-	}
-
-	private boolean annotatedElementValid(Element element) {
-		// sanity check
-		if (!element.getKind().equals(ElementKind.FIELD)) {
-			messager().printMessage(Kind.ERROR, "annotated target must be a field", element);
-			return false;
-		}
-
-		// check for invalid modifiers, we can only create classes in the
-		// same package
-		if (!Collections.disjoint(element.getModifiers(), DISALLOWED_MODIFIERS)) {
-			messager().printMessage(Kind.ERROR,
-					"field with " + DISALLOWED_MODIFIERS.toString() + " cannot be retained",
-					element);
-			return false;
-		}
-		return true;
-	}
-
-	private boolean enclosingClassValid(Element element) {
-		int depth = 0;
-		Element enclosingElement = element.getEnclosingElement();
-		while (enclosingElement != null) {
-			if (DEBUG)
-				messager().printMessage(Kind.NOTE, "scanning package tree, depth = " + depth,
-						enclosingElement);
-
-			// skip until we find a class
-			if (!enclosingElement.getKind().equals(ElementKind.CLASS))
-				break;
-
-			if (!enclosingElement.getKind().equals(ElementKind.CLASS)) {
-				messager().printMessage(Kind.ERROR,
-						"enclosing element(" + enclosingElement.toString() + ") is not a class",
-						element);
-				return false;
-			}
-
-			TypeElement enclosingClass = (TypeElement) enclosingElement;
-
-			// protected, package-private, and public all allow same package
-			// access
-			if (enclosingClass.getModifiers().contains(Modifier.PRIVATE)) {
-				messager().printMessage(Kind.ERROR,
-						"enclosing class (" + enclosingElement.toString() + ") cannot be private",
-						element);
-				return false;
-			}
-
-			if (enclosingClass.getNestingKind() != NestingKind.TOP_LEVEL
-					&& !enclosingClass.getModifiers().contains(Modifier.STATIC)) {
-				messager().printMessage(Kind.ERROR, "enclosing class is nested but not static",
-						element);
-				return false;
-			}
-
-			depth++;
-			enclosingElement = enclosingClass.getEnclosingElement();
-		}
-
-		return true;
 	}
 
 	@Override

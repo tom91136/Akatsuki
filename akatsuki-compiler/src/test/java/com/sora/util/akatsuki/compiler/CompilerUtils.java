@@ -26,7 +26,7 @@ import static com.google.common.base.Charsets.UTF_8;
 public class CompilerUtils {
 
 	static Result compile(ClassLoader loader, Iterable<Processor> processors,
-			JavaFileObject... objects) {
+	                      JavaFileObject... objects) {
 		// we need all this because we got a annotation processor, the generated
 		// class has to go into memory too
 		final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -56,6 +56,12 @@ public class CompilerUtils {
 				.map(f -> (InMemoryJavaFileObject) f).filter(InMemoryJavaFileObject::isSource)
 				.collect(Collectors.toList());
 		final StringWriter writer = new StringWriter();
+
+		writer.append("\nAll files:");
+		for (JavaFileObject fileObject : sources) {
+			writer.append("\n\t").append(fileObject.toUri().toString());
+		}
+
 		writer.append("\nGenerated source(s):\n");
 		for (InMemoryJavaFileObject file : sourceFiles) {
 			writer.append("File:").append(file.toUri().toString()).append("\n");
@@ -68,6 +74,7 @@ public class CompilerUtils {
 			}
 			writer.append("\n===============================\n");
 		}
+
 		return writer.toString();
 	}
 

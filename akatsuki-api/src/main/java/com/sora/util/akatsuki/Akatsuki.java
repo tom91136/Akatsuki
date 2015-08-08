@@ -12,13 +12,68 @@ import java.util.WeakHashMap;
 /**
  * Contains API for working with {@link Retained} annotated fields.
  */
+@SuppressWarnings("ALL")
 public class Akatsuki {
 
 	private static final WeakHashMap<String, BundleRetainer<?>> CLASS_CACHE = new WeakHashMap<>();
 
 	private static final Map<Class<? extends TypeConverter<?>>, TypeConverter<?>> CACHED_CONVERTERS = new HashMap<>();
 
-	private static final String TAG = "Akatsuki";
+	public static final String RETAINER_CACHE_NAME = "AkatsukiMapping";
+	public static final String RETAINER_CACHE_PACKAGE = "com.sora.util.akatsuki";
+
+	public static final String TAG = "Akatsuki";
+
+	private static LoggingLevel loggingLevel = LoggingLevel.ERROR_ONLY;
+
+	private static RetainerCache retainerCache;
+
+	static {
+		Class<?> retainerCacheClass = null;
+		try {
+			retainerCacheClass = Class.forName(RETAINER_CACHE_PACKAGE + "." + RETAINER_CACHE_NAME);
+		} catch (ClassNotFoundException iggored) {
+			// we don't have it, that's fine
+		}
+		if (retainerCacheClass != null) {
+			try {
+				retainerCache = (RetainerCache) retainerCacheClass.newInstance();
+			} catch (Exception e) {
+				// we have it but it's broken, not good
+				throw new RuntimeException("Unable to instantiate RetainerCache", e);
+			}
+		}
+	}
+
+	/**
+	 * Logging levels
+	 */
+	public enum LoggingLevel {
+		/**
+		 * Print debug informations at compile time such as class scanning
+		 * progress(this would large output so use with caution)
+		 **/
+		DEBUG, /**
+				 * Print everything! (class caching, verification, and class
+				 * hierarchy traversal attempts)
+				 */
+		VERBOSE, /**
+					 * Prints only errors (when a {@link BundleRetainer} is
+					 * missing for example)
+					 */
+		ERROR_ONLY
+	}
+
+	/**
+	 * Sets the current logging level
+	 */
+	public static void setLoggingLevel(LoggingLevel level) {
+		loggingLevel = level;
+	}
+
+	public static LoggingLevel loggingLevel() {
+		return loggingLevel;
+	}
 
 	/**
 	 * Saves all fields annotated with {@link Retained} into the provided bundle
@@ -167,23 +222,83 @@ public class Akatsuki {
 		final String fqcn = clazz.getClass().getName();
 		BundleRetainer<T> instance = (BundleRetainer<T>) CLASS_CACHE.get(fqcn);
 		if (instance == null) {
-			final String generatedClassName = generateRetainerClassName(fqcn);
-			try {
-				instance = (BundleRetainer<T>) Class.forName(generatedClassName).newInstance();
-				CLASS_CACHE.put(fqcn, instance);
-				Log.i(TAG, "cache miss for class " + fqcn + " (" + generatedClassName + ")");
-			} catch (ClassCastException e) {
-				throw new RuntimeException(
-						fqcn + "does not implement BundleRetainer or has the wrong generic "
-								+ "parameter, this is weird",
-						e);
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
+			if (loggingLevel == LoggingLevel.VERBOSE)
+				Log.i(TAG, "cache miss for class " + fqcn);
+			instance = createRetainer(Thread.currentThread().getContextClassLoader(), retainerCache,
+					fqcn, clazz.getClass());
+			CLASS_CACHE.put(fqcn, instance);
 		} else {
-			Log.i(TAG, "cache hit " + fqcn);
+			if (loggingLevel == LoggingLevel.VERBOSE)
+				Log.i(TAG, "cache hit for class" + fqcn);
 		}
 		return instance;
+	}
+
+	/**
+	 * Finds the {@link BundleRetainer} class and instantiate it. You would not
+	 * normally need this, this method does not do any caching and is desinged
+	 * to be used from classes that require access to a fresh
+	 * {@link BundleRetainer} instance
+	 * 
+	 * @param fqcn
+	 *            the fully qialified class name of the instance
+	 * @param clazz
+	 *            the {@link Class} of the instance
+	 * @param <T>
+	 *            the type of the annotated instance
+	 * @return the {@link BundleRetainer}
+	 */
+	public static <T> BundleRetainer<T> createRetainer(ClassLoader loader, RetainerCache cache,
+			String fqcn, Class<?> clazz) {
+		final BundleRetainer<T> instance;
+		try {
+			Class<? extends BundleRetainer> retainerClass = null;
+			if (cache != null)
+				retainerClass = cache.getCached(fqcn);
+			if (retainerClass == null) {
+				try {
+					retainerClass = (Class<? extends BundleRetainer>) Class
+							.forName(generateRetainerClassName(fqcn), true, loader);
+				} catch (ClassNotFoundException ignored) {
+					// can't find it, moving on
+				}
+			}
+			if (retainerClass == null)
+				retainerClass = (Class<? extends BundleRetainer>) findClass(loader, clazz);
+			if (retainerClass == null)
+				throw new RuntimeException("Unable to find generated class for " + fqcn
+						+ ", does the class contain any fields annotated with @Retain(inherited class works too)?");
+			instance = retainerClass.newInstance();
+		} catch (ClassCastException e) {
+			throw new RuntimeException(
+					fqcn + "does not implement BundleRetainer or has the wrong generic "
+							+ "parameter, this is weird",
+					e);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		return instance;
+	}
+
+	/**
+	 * Traverse the class hierachy to find correct BundleRetainer
+	 */
+	private static Class<?> findClass(ClassLoader loader, Class<?> clazz) {
+		final String name = clazz.getName();
+		if (name.startsWith("android.") || name.startsWith("java."))
+			return null;
+		String generatedClassName = generateRetainerClassName(name);
+		try {
+			if (loggingLevel == LoggingLevel.VERBOSE)
+				Log.i(TAG, "traversing hieraichy to find retainer for class " + clazz);
+			return Class.forName(generatedClassName, true, loader);
+		} catch (ClassNotFoundException e) {
+			return findClass(loader, clazz.getSuperclass());
+		}
+	}
+
+	private static void discardCache() {
+		CLASS_CACHE.clear();
 	}
 
 	/**
