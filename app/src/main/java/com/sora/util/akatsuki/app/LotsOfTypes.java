@@ -1,71 +1,55 @@
 package com.sora.util.akatsuki.app;
 
-import android.accounts.Account;
-import android.os.Binder;
-import android.os.Bundle;
-import android.os.Parcelable;
-import android.util.Size;
-import android.util.SizeF;
-import android.util.SparseArray;
-
-import com.sora.util.akatsuki.Retained;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-
-/**
- * Project: Akatsuki Created by tom91136 on 11/07/2015.
- */
 public class LotsOfTypes {
 
-	@Retained Account account;
-	@Retained Account[] accounts;
-	@Retained ArrayList<Account> accountList;
-
-	@Retained Binder $$$A$binder;
-	@Retained Binder 我我;
-
-	@Retained Binder binder;
-
-	@Retained Boolean bBoolean;
-	@Retained boolean aBoolean;
-	@Retained boolean[] booleans;
-	@Retained Bundle bundle;
-	@Retained Byte bByte;
-	@Retained byte aByte;
-	@Retained byte[] bytes;
-	@Retained Character bChar;
-	@Retained char aChar;
-	@Retained char[] chars;
-	@Retained CharSequence charSequence;
-	@Retained CharSequence[] charSequences;
-	@Retained ArrayList<CharSequence> charSequenceArrayList;
-	@Retained Double bDouble;
-	@Retained double aDouble;
-	@Retained double[] doubles;
-	@Retained Float bFloat;
-	@Retained float aFloat;
-	@Retained float[] floats;
-	@Retained int anInt;
-	@Retained int[] ints;
-	@Retained ArrayList<Integer> integerArrayList;
-	@Retained Long bLong;
-	@Retained long aLong;
-	@Retained long[] longs;
-	@Retained Parcelable parcelable;
-	@Retained Parcelable[] parcelables;
-	@Retained ArrayList<Parcelable> parcelableArrayList;
-	@Retained Serializable serializable;
-	@Retained Short bShort;
-	@Retained short aShort;
-	@Retained short[] shorts;
-	@Retained Size size;
-	@Retained SizeF sizeF;
-	@Retained SparseArray<Parcelable> sparseArray;
-	@Retained SparseArray<Account> accountArray;
-	@Retained String string;
-	@Retained String[] strings;
-	@Retained ArrayList<String> stringArrayList;
+//	@Retained Account account;
+//	@Retained Account[] accounts;
+//	@Retained ArrayList<Account> accountList;
+//
+//	@Retained Binder $$$A$binder;
+//	@Retained Binder 我我;
+//
+//	@Retained Binder binder;
+//
+//	@Retained Boolean bBoolean;
+//	@Retained boolean aBoolean;
+//	@Retained boolean[] booleans;
+//	@Retained Bundle bundle;
+//	@Retained Byte bByte;
+//	@Retained byte aByte;
+//	@Retained byte[] bytes;
+//	@Retained Character bChar;
+//	@Retained char aChar;
+//	@Retained char[] chars;
+//	@Retained CharSequence charSequence;
+//	@Retained CharSequence[] charSequences;
+//	@Retained ArrayList<CharSequence> charSequenceArrayList;
+//	@Retained Double bDouble;
+//	@Retained double aDouble;
+//	@Retained double[] doubles;
+//	@Retained Float bFloat;
+//	@Retained float aFloat;
+//	@Retained float[] floats;
+//	@Retained int anInt;
+//	@Retained int[] ints;
+//	@Retained ArrayList<Integer> integerArrayList;
+//	@Retained Long bLong;
+//	@Retained long aLong;
+//	@Retained long[] longs;
+//	@Retained Parcelable parcelable;
+//	@Retained Parcelable[] parcelables;
+//	@Retained ArrayList<Parcelable> parcelableArrayList;
+//	@Retained Serializable serializable;
+//	@Retained Short bShort;
+//	@Retained short aShort;
+//	@Retained short[] shorts;
+//	@Retained Size size;
+//	@Retained SizeF sizeF;
+//	@Retained SparseArray<Parcelable> sparseArray;
+//	@Retained SparseArray<Account> accountArray;
+//	@Retained String string;
+//	@Retained String[] strings;
+//	@Retained ArrayList<String> stringArrayList;
 
 	// @Retained ArrayList<ArrayList<String>> stringArrayList2;
 	// @Retained ArrayList<ArrayList<Boolean[]>> booleanArrList2;
