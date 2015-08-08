@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -82,7 +81,7 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		}
 
 		map.values().stream().forEach(m -> {
-			//messager().printMessage(Kind.OTHER, m.toString());
+			// messager().printMessage(Kind.OTHER, m.toString());
 			try {
 				m.writeSourceToFile(processingEnv.getFiler(), templates, map, declaredConverters);
 			} catch (IOException e) {
@@ -136,20 +135,20 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 	private List<DeclaredConverterModel> findDeclaredConverters(RoundEnvironment roundEnv) {
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
-		final Map<Boolean, List<Element>> partitioned = elements.stream()
-				.collect(Collectors.partitioningBy(e -> utils()
-						.isAssignable(utils().of(TypeConverter.class), e.asType(), true)));
-
-		if (partitioned.containsKey(false)) {
+		final List<Element> invalidElements = elements.stream().filter(
+				e -> !utils().isAssignable(utils().of(TypeConverter.class), e.asType(), true))
+				.collect(Collectors.toList());
+		if (!invalidElements.isEmpty()) {
 			// we have incorrectly annotated elements
-			partitioned.get(false)
+			invalidElements.stream()
 					.forEach(e -> messager().printMessage(Kind.ERROR,
-							"@DeclaredConverter can only be used on types that implement TypeConverter",
+							"@DeclaredConverter can only be used on types that implement "
+									+ "TypeConverter",
 							e));
 			return Collections.emptyList();
 		} else {
 			// good to go
-			return partitioned.getOrDefault(true, Collections.emptyList()).stream()
+			return invalidElements.stream()
 					.map(e -> new DeclaredConverterModel((DeclaredType) e,
 							e.getAnnotation(DeclaredConverter.class).value()))
 					.collect(Collectors.toList());
