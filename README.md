@@ -1,5 +1,8 @@
 Akatsuki
 ============
+
+[![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat)](https://android-arsenal.com/details/1/2230)
+
 **This library is complete and functional but I would like to make sure everything works so no artifacts yet!**
 
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
@@ -62,6 +65,9 @@ public class MainActivity extends Activity {
 	}
 }
 ```
+<sup>1</sup>Reflection is used only once to locate the generated classes.
+
+----------
 
 Advanced usage
 ---------
