@@ -26,7 +26,8 @@ dependencies {
     compile 'com.google.auto.service:auto-service:1.0-rc2'
     compile 'com.github.spullara.mustache.java:compiler:0.9.0'
     compile 'io.janusproject.guava:guava:19.0.0'
-    compile 'com.google.android:android:4.1.1.4'
+
+    provided 'com.google.android:android:4.1.1.4'
 
     testCompile 'com.google.testing.compile:compile-testing:0.7'
     testCompile 'com.google.android:android:4.1.1.4' // with the exception of testing of course
@@ -36,3 +37,5 @@ dependencies {
     testCompile 'junit:junit:4.12'
 
 }
+
+apply from: file('../deploy-java.gradle')

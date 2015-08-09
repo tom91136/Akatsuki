@@ -1,22 +1,59 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-
 buildscript {
     repositories {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.2.3'
+        classpath 'com.android.tools.build:gradle:1.3.0'
         classpath 'com.neenbedankt.gradle.plugins:android-apt:1.5.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.2'
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.3'
     }
 }
+
 
 allprojects {
     repositories {
         jcenter()
-        mavenCentral()
-        mavenLocal()
     }
 }
+
+ext {
+    userId = 'tom91136'
+    userName = 'Tom Lin'
+    userEmail = 'tom91136@gmail.com'
+    publishedGroupId = 'com.sora.util.akatsuki'
+    publishVersion = '0.0.1'
+    desc = 'Akatsuki is an Android library that handles state restoration via annotations.'
+    publishName = 'Akatsuki'
+    siteUrl = 'https://github.com/tom91136/Akatsuki'
+    gitUrl = 'https://github.com/tom91136/Akatsuki.git'
+}
+
+Properties properties = new Properties()
+properties.load(file('config.properties').newDataInputStream())
+
+subprojects {
+
+    apply plugin: 'com.jfrog.bintray'
+
+
+    bintray {
+        user = properties.getProperty("bintray.user")
+        key = properties.getProperty("bintray.apikey")
+        configurations = ['archives']
+        dryRun = false
+        pkg {
+            repo = 'maven'
+            name = publishName
+            licenses = ['Apache-2.0']
+            publish = true
+            publicDownloadNumbers = true
+            websiteUrl = siteUrl
+            vcsUrl = gitUrl
+        }
+    }
+}
+
 
 
 
