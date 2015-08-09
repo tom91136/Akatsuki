@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Akatsuki by tom91136</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Akatsuki</h1>
+        <p>Akatsuki is an Android library that handles state restoration via annotations.</p>
+
+        <p class="view"><a href="https://github.com/tom91136/Akatsuki">View the Project on GitHub <small>tom91136/Akatsuki</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/tom91136/Akatsuki/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/tom91136/Akatsuki/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/tom91136/Akatsuki">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="akatsuki" class="anchor" href="#akatsuki" aria-hidden="true"><span class="octicon octicon-link"></span></a>Akatsuki</h1>
+
+<p><a href="https://android-arsenal.com/details/1/2230"><img src="https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat" alt="Android Arsenal"></a>
+<a href="https://travis-ci.org/tom91136/Akatsuki"><img src="https://travis-ci.org/tom91136/Akatsuki.svg" alt="Build Status"></a></p>
+
+<p><strong>This library is complete and functional but I would like to make sure everything works so no artifacts yet!</strong></p>
+
+<p>Akatsuki is an Android library that handles <a href="http://developer.android.com/training/basics/activity-lifecycle/recreating.html">state restoration</a> via annotations.
+The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.</p>
+
+<p>Typical usage looks like:</p>
+
+<div class="highlight highlight-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MainActivity</span> <span class="pl-k">extends</span> <span class="pl-e">Activity</span> {
+
+    <span class="pl-k">@Retained</span> <span class="pl-smi">String</span> myString;
+    <span class="pl-k">@Retained</span> <span class="pl-k">int</span> myInt;
+    <span class="pl-k">@Retained</span> <span class="pl-smi">Account</span> account; <span class="pl-c">// Account implements Parcelable</span>
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-k">void</span> <span class="pl-en">onCreate</span>(<span class="pl-smi">Bundle</span> <span class="pl-v">savedInstanceState</span>) {
+        <span class="pl-v">super</span><span class="pl-k">.</span>onCreate(savedInstanceState);
+        setContentView(<span class="pl-smi">R</span><span class="pl-k">.</span>layout<span class="pl-k">.</span>activity_main);
+        <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>restore(<span class="pl-v">this</span>, savedInstanceState);
+        <span class="pl-c">//everything restored!   </span>
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-k">void</span> <span class="pl-en">onSaveInstanceState</span>(<span class="pl-smi">Bundle</span> <span class="pl-v">outState</span>) {
+        <span class="pl-v">super</span><span class="pl-k">.</span>onSaveInstanceState(outState);
+        <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>save(<span class="pl-v">this</span>, outState);
+    }
+}</pre></div>
+
+<p>Annotate the fields you want to persist, Akatsuki takes care of the rest.</p>
+
+<p>If you are new to Android development, retaining fields are painful and error prone. You have to create string keys and then manually call the <code>set&lt;Type&gt;</code> and <code>get&lt;Type&gt;</code>of the <code>Bundle</code> object.
+To demonstrate, here is the same Activity <strong>without using Akatsuki:</strong></p>
+
+<div class="highlight highlight-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MainActivity</span> <span class="pl-k">extends</span> <span class="pl-e">Activity</span> {
+
+    <span class="pl-k">private</span> <span class="pl-k">static</span> <span class="pl-k">final</span> <span class="pl-smi">String</span> <span class="pl-c1">MY_STRING</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>myString<span class="pl-pds">"</span></span>;
+    <span class="pl-k">private</span> <span class="pl-k">static</span> <span class="pl-k">final</span> <span class="pl-smi">String</span> <span class="pl-c1">MY_INT</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>myInt<span class="pl-pds">"</span></span>;
+    <span class="pl-k">private</span> <span class="pl-k">static</span> <span class="pl-k">final</span> <span class="pl-smi">String</span> <span class="pl-c1">ACCOUNT</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>account<span class="pl-pds">"</span></span>;
+
+    <span class="pl-smi">String</span> myString;
+    <span class="pl-k">int</span> myInt;
+    <span class="pl-smi">Account</span> account;
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-k">void</span> <span class="pl-en">onCreate</span>(<span class="pl-smi">Bundle</span> <span class="pl-v">savedInstanceState</span>) {
+        <span class="pl-v">super</span><span class="pl-k">.</span>onCreate(savedInstanceState);
+        setContentView(<span class="pl-smi">R</span><span class="pl-k">.</span>layout<span class="pl-k">.</span>activity_main);
+        myString <span class="pl-k">=</span> savedInstanceState<span class="pl-k">.</span>getString(<span class="pl-c1">MY_STRING</span>);
+        myInt <span class="pl-k">=</span> savedInstanceState<span class="pl-k">.</span>getInt(<span class="pl-c1">MY_INT</span>);
+        account <span class="pl-k">=</span> savedInstanceState<span class="pl-k">.</span>getParcelable(<span class="pl-c1">ACCOUNT</span>);
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-k">void</span> <span class="pl-en">onSaveInstanceState</span>(<span class="pl-smi">Bundle</span> <span class="pl-v">outState</span>) {
+        <span class="pl-v">super</span><span class="pl-k">.</span>onSaveInstanceState(outState);
+        outState<span class="pl-k">.</span>putString(<span class="pl-c1">MY_STRING</span>, myString);
+        outState<span class="pl-k">.</span>putInt(<span class="pl-c1">MY_INT</span>, myInt);
+        outState<span class="pl-k">.</span>putParcelable(<span class="pl-c1">ACCOUNT</span>, account);
+    }
+}</pre></div>
+
+<p><sup>1</sup>Reflection is used only once to locate the generated classes.</p>
+
+<hr>
+
+<h2>
+<a id="advanced-usage" class="anchor" href="#advanced-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Advanced usage</h2>
+
+<p>Akatsuki supports any kind of objects(Fragments, Services, and Views), not just Activity. As long as the persisting medium is a <code>Bundle</code>, the code generation will work.</p>
+
+<p>For <code>View</code> states, Akatsuki provides several utility methods to make view state restoration possible. To demonstrate: </p>
+
+<div class="highlight highlight-java"><pre><span class="pl-k">public</span> <span class="pl-k">static</span> <span class="pl-k">class</span> <span class="pl-en">MyView</span> <span class="pl-k">extends</span> <span class="pl-e">View</span> {
+
+    <span class="pl-k">@Retained</span> <span class="pl-k">int</span> myInt;
+
+    <span class="pl-k">public</span> <span class="pl-en">MyView</span>(<span class="pl-smi">Context</span> <span class="pl-v">context</span>) {
+        <span class="pl-v">super</span>(context);
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-smi">Parcelable</span> <span class="pl-en">onSaveInstanceState</span>() {
+        <span class="pl-k">return</span> <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>save(<span class="pl-v">this</span>, <span class="pl-v">super</span><span class="pl-k">.</span>onSaveInstanceState());
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">protected</span> <span class="pl-k">void</span> <span class="pl-en">onRestoreInstanceState</span>(<span class="pl-smi">Parcelable</span> <span class="pl-v">state</span>) {
+        <span class="pl-v">super</span><span class="pl-k">.</span>onRestoreInstanceState(<span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>restore(<span class="pl-v">this</span>, state));
+    }
+}</pre></div>
+
+<p>Because <code>Bundle</code> is just a type safe container for <code>Parcel</code>, you can also use Akatsuki like so:</p>
+
+<div class="highlight highlight-java"><pre><span class="pl-c">// you can have some bean</span>
+<span class="pl-k">static</span> <span class="pl-k">class</span> <span class="pl-en">MyStuff</span>{
+    <span class="pl-k">@Retained</span> <span class="pl-k">int</span> foo;
+    <span class="pl-k">@Retained</span> <span class="pl-smi">String</span> bar;
+    <span class="pl-c">// your getters/setters etc</span>
+}
+
+<span class="pl-c">// serialize your bean into a Bundle</span>
+<span class="pl-smi">MyStuff</span> stuff <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyStuff</span>();
+<span class="pl-smi">Bundle</span> bundle <span class="pl-k">=</span> <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>serialize(stuff);
+
+
+<span class="pl-c">// restore your bean from the Bundle</span>
+<span class="pl-smi">MyStuff</span> stuff <span class="pl-k">=</span> <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>deserialize(<span class="pl-k">new</span> <span class="pl-smi">MyStuff</span>(), bundle);</pre></div>
+
+<p>For debug purposes, <code>@Retain</code> has a method called <code>skip()</code>, when set to true, the field will not be retained. Adding the <code>transient</code> modifier also has the same effect.</p>
+
+<h2>
+<a id="supported-types" class="anchor" href="#supported-types" aria-hidden="true"><span class="octicon octicon-link"></span></a>Supported types</h2>
+
+<p>All data types supported by <code>Bundle</code> is supported by Akatsuki, that includes:</p>
+
+<div class="highlight highlight-java"><pre><span class="pl-smi">IBinder</span>
+<span class="pl-k">boolean</span>
+<span class="pl-k">boolean</span>[]
+<span class="pl-smi">Bundle</span>
+<span class="pl-k">byte</span>
+<span class="pl-k">byte</span>[]
+<span class="pl-k">char</span>
+<span class="pl-k">char</span>[]
+<span class="pl-smi">CharSequence</span>
+<span class="pl-k">CharSequence</span>[]
+<span class="pl-k">ArrayList&lt;<span class="pl-smi">CharSequence</span>&gt;</span>
+<span class="pl-k">double</span>
+<span class="pl-k">double</span>[]
+<span class="pl-k">float</span>
+<span class="pl-k">float</span>[]
+<span class="pl-smi">IBinder</span>
+<span class="pl-k">int</span>
+<span class="pl-k">int</span>[]
+<span class="pl-k">ArrayList&lt;<span class="pl-smi">Integer</span>&gt;</span>
+<span class="pl-k">long</span>
+<span class="pl-k">long</span>[]
+<span class="pl-smi">String</span>
+<span class="pl-smi">Parcelable</span>
+<span class="pl-k">Parcelable</span>[]
+<span class="pl-k">ArrayList&lt;<span class="pl-smi">T</span>&gt;</span>
+<span class="pl-smi">Serializable</span>
+<span class="pl-k">short</span>
+<span class="pl-k">short</span>[]
+<span class="pl-smi">Size</span>
+<span class="pl-smi">SizeF</span>
+<span class="pl-k">SparseArray&lt;<span class="pl-smi">T</span>&gt;</span>
+<span class="pl-smi">String</span>
+<span class="pl-k">String</span>[]
+<span class="pl-k">ArrayList&lt;<span class="pl-smi">String</span>&gt;</span></pre></div>
+
+<h2>
+<a id="annotated-types" class="anchor" href="#annotated-types" aria-hidden="true"><span class="octicon octicon-link"></span></a>Annotated types</h2>
+
+<p>Types annotated with <code>@Retained</code> will also be saved and restored <strong>but not instantiated</strong>.
+What this means is that you would have to do something like this:</p>
+
+<div class="highlight highlight-java"><pre>@<span class="pl-smi">Retained</span> <span class="pl-smi">MyType</span> foo; <span class="pl-c">// MyType has fields annotated with @Retained</span>
+@<span class="pl-smi">Retained</span> <span class="pl-k">int</span> bar;
+
+@<span class="pl-smi">Override</span>
+<span class="pl-k">protected</span> <span class="pl-k">void</span> onCreate(<span class="pl-smi">Bundle</span> savedInstanceState) {
+    <span class="pl-v">super</span><span class="pl-k">.</span>onCreate(savedInstanceState);
+    setContentView(<span class="pl-smi">R</span><span class="pl-k">.</span>layout<span class="pl-k">.</span>activity_main);
+    <span class="pl-c">// manually instantiate your custom type</span>
+    foo <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyType</span>(<span class="pl-c">/* some arguments*/</span>); 
+    <span class="pl-c">// bar is a supported type so no need to instantiate</span>
+    <span class="pl-smi">Akatsuki</span><span class="pl-k">.</span>restore(<span class="pl-v">this</span>, savedInstanceState); 
+}</pre></div>
+
+<p>This is because Akatsuki does not know how your custom type is created so you will have to instantiate it yourself <strong>BEFORE</strong> <code>Akatsuki.restore(Object, Bundle)</code> is called. </p>
+
+<h2>
+<a id="generic-parameters" class="anchor" href="#generic-parameters" aria-hidden="true"><span class="octicon octicon-link"></span></a>Generic parameters</h2>
+
+<p>Generic parameters are supported if and only if the type can be computed at compile time. This means that a type <code>&lt;T&gt;</code> must have known bounds.<br>
+The following examples will work</p>
+
+<div class="highlight highlight-java"><pre><span class="pl-k">&lt;</span><span class="pl-smi">T</span> extends <span class="pl-smi">Parcelable</span><span class="pl-k">&gt;</span> 
+<span class="pl-k">&lt;</span><span class="pl-smi">T</span> extends <span class="pl-smi">Serializable</span><span class="pl-k">&gt;</span>
+<span class="pl-k">&lt;</span><span class="pl-smi">T</span> extends <span class="pl-smi">Parcelable</span> <span class="pl-k">&amp;</span> <span class="pl-smi">Serializable</span><span class="pl-k">&gt;</span> <span class="pl-c">// intersection type</span></pre></div>
+
+<p>When a intersection type is found, a search for supported type is executed from left to right. If a supported type is found, that type will be used for serialization.</p>
+
+<h2>
+<a id="inheritance" class="anchor" href="#inheritance" aria-hidden="true"><span class="octicon octicon-link"></span></a>Inheritance</h2>
+
+<p><strong>Inheritance is fully supported</strong>, annotated fields will continue to persist in subclasses.</p>
+
+<h2>
+<a id="field-hiding" class="anchor" href="#field-hiding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Field hiding</h2>
+
+<p><a href="https://docs.oracle.com/javase/tutorial/java/IandI/hidevariables.html">Field hiding</a> is supported through traversing the class hierarchy to avoid field name collisions.
+NOTE: The use of field hiding is discouraged as it makes code hard to follow.</p>
+
+<h2>
+<a id="parceler-support" class="anchor" href="#parceler-support" aria-hidden="true"><span class="octicon octicon-link"></span></a>Parceler support</h2>
+
+<p>Akatsuki supports <a href="https://github.com/johncarl81/parceler">Parceler</a> annotated beans
+Simply add <code>@IncludeClasses(ParcelerSupport.class)</code> to any class in your project.(MainActivity or your custom Application class perhaps).
+And don't forget to import:</p>
+
+<div class="highlight highlight-groovy"><pre>compile <span class="pl-s"><span class="pl-pds">'</span>com.sora.util.akatsuki:akatsuki-parceler:${version}<span class="pl-pds">'</span></span></pre></div>
+
+<h2>
+<a id="transformationtemplate" class="anchor" href="#transformationtemplate" aria-hidden="true"><span class="octicon octicon-link"></span></a>@TransformationTemplate</h2>
+
+<p><code>@TransformationTemplate</code> allows you to support arbitrary types. To understand how this works, here's the what the class <code>ParcelerSupport</code> actually looks like:</p>
+
+<div class="highlight highlight-java"><pre>@TransformationTemplate(
+        save <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>{{bundle}}.putParcelable(<span class="pl-cce">\"</span>{{fieldName}}<span class="pl-cce">\"</span>, org.parceler.Parcels.wrap({{fieldName}}))<span class="pl-pds">"</span></span>,
+        restore <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable(<span class="pl-cce">\"</span>{{fieldName}}<span class="pl-cce">\"</span>))<span class="pl-pds">"</span></span>,
+        types <span class="pl-k">=</span> {<span class="pl-smi">Parcel</span><span class="pl-k">.</span>class},
+        execution <span class="pl-k">=</span> <span class="pl-smi">Execution</span><span class="pl-c1"><span class="pl-k">.</span>BEFORE</span>)
+<span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">ParcelerSupport</span> {
+    <span class="pl-c">// dummy class, any class in the project will work</span>
+}</pre></div>
+
+<p>Parceler annotated beans need <code>Parcels.wrap()</code> and <code>Parcels.unwrap()</code> before the object becomes usable. In the example above, we simply create a code template that includes the custom logic for wrapping and unwrapping Parceler objects.
+Akatsuki uses <a href="https://mustache.github.io/">mustache</a> to convert the template into code that gets emitted into the generated source file. Everything is done in compile time so there will be no runtime cost. The <code>@TransformationTemplate</code> annotation has a retention of <code>RetentionPolicy.CLASS</code> so that it has no effect in runtime while other libraries using the annotation could still retain the template. For more information on how to write Transformation templates, the <a href="">javadoc</a> contains examples and docs for all methods in the annotation.</p>
+
+<p>Due to a limitation of APT, if the template is located in another library, you have to include the class that is annotated with <code>@TransformationTemplate</code>  with <code>@IncludeClasses(TheClass.class)</code>, see the <a href="#Parceler%20support">Parceler support section </a> for more info.</p>
+
+<h2>
+<a id="why-another-library" class="anchor" href="#why-another-library" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why another library?</h2>
+
+<p>Currently, we have <a href="https://github.com/frankiesardo/icepick">Icepick</a> and possibly some other libraries that I'm not aware of. The main motivation for this library is due to the inflexibility of Icepick. Icepick does not support <a href="https://github.com/johncarl81/parceler">Parceler</a> which is a deal breaker for me (there's a <a href="https://github.com/frankiesardo/icepick/pull/20">discussion</a> on why that's the case). Incompatibility between Parceler and Icepick does not justify the creation of a another library, I could have forked Icepick and added the support myself and be happy. But no, I want to see how APT works so I did a <a href="https://en.wikipedia.org/wiki/Clean_room_design">clean room implementation</a> of Icepick and added some other features.</p>
+
+<h2>
+<a id="download" class="anchor" href="#download" aria-hidden="true"><span class="octicon octicon-link"></span></a>Download</h2>
+
+<div class="highlight highlight-groovy"><pre>compile <span class="pl-s"><span class="pl-pds">'</span>com.sora.util.akatsuki:akatsuki-api:${version}<span class="pl-pds">'</span></span>
+apt <span class="pl-s"><span class="pl-pds">'</span>com.sora.util.akatsuki:akatsuki-compiler:${version}<span class="pl-pds">'</span></span></pre></div>
+
+<h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
+
+<pre><code>Copyright 2015 WEI CHEN LIN
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+</code></pre>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/tom91136">tom91136</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-66117255-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
