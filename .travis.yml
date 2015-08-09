@@ -1,5 +1,5 @@
 language: android
-script: "gradle build"
+script: "./gradlew build"
 android:
   components:
     - platform-tools
@@ -18,6 +18,8 @@ android:
 
 jdk:
   - oraclejdk8
+before_install:
+  - chmod +x gradlew
 addons:
   apt:
     packages:

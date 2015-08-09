@@ -74,9 +74,7 @@ proguard/
 # Log Files
 *.log
 
-gradlew
-gradlew.bat
-gradle
+
 
 config.properties
 
