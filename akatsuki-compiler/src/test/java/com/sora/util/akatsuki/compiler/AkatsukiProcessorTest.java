@@ -2,7 +2,7 @@ package com.sora.util.akatsuki.compiler;
 
 import com.google.testing.compile.CompileTester.SuccessfulCompilationClause;
 import com.google.testing.compile.JavaFileObjects;
-import com.sora.util.akatsuki.Akatsuki;
+import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.Retained;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.JavaFile;
@@ -87,7 +87,7 @@ public class AkatsukiProcessorTest extends TestBase {
 			for (String name : generated.names) {
 				clause.and().generatesFileNamed(StandardLocation.SOURCE_OUTPUT,
 						TEST_PACKAGE,
-						Akatsuki.generateRetainerClassName(name) + ".java");
+						Internal.generateRetainerClassName(name) + ".java");
 			}
 		}
 
@@ -104,7 +104,7 @@ public class AkatsukiProcessorTest extends TestBase {
 		// the assertion error is expected because no file should be generated
 		assertTestClass(testClass).compilesWithoutError().and().generatesFileNamed(
 				StandardLocation.SOURCE_OUTPUT, TEST_PACKAGE,
-				Akatsuki.generateRetainerClassName(TEST_CLASS) + ".java");
+				Internal.generateRetainerClassName(TEST_CLASS) + ".java");
 	}
 
 }

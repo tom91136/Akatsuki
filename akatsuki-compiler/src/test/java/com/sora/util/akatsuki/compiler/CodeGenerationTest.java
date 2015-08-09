@@ -41,6 +41,7 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
+import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Retained;
@@ -403,7 +404,7 @@ public class CodeGenerationTest extends TestBase {
 				} catch (Exception ignored) {
 					// doesn't really matter
 				}
-				retainer = Akatsuki.createRetainer(result.classLoader, retainerCache, fqcn,
+				retainer = Internal.createRetainer(result.classLoader, retainerCache, fqcn,
 						testClass);
 				mockedSource = mock(testClass);
 				mockedBundle = mock(Bundle.class);

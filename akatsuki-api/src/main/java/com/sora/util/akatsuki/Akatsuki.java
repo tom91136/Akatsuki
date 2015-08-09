@@ -24,7 +24,7 @@ public class Akatsuki {
 
 	public static final String TAG = "Akatsuki";
 
-	private static LoggingLevel loggingLevel = LoggingLevel.ERROR_ONLY;
+	static LoggingLevel loggingLevel = LoggingLevel.ERROR_ONLY;
 
 	private static RetainerCache retainerCache;
 
@@ -77,7 +77,7 @@ public class Akatsuki {
 
 	/**
 	 * Saves all fields annotated with {@link Retained} into the provided bundle
-	 * 
+	 *
 	 * @param instance
 	 *            the object that contains the annotated fields
 	 * @param outState
@@ -92,7 +92,7 @@ public class Akatsuki {
 	/**
 	 * Restores field saved by {@link #save(Object, Bundle)} back into the
 	 * instance
-	 * 
+	 *
 	 * @param instance
 	 *            the object that needs restoring
 	 * @param savedInstanceState
@@ -108,6 +108,7 @@ public class Akatsuki {
 	 * Like {@link #save(Object, Bundle)} but included some View state aware
 	 * logic, use this if you want to save view states. Typical usage looks
 	 * like:
+	 * <p>
 	 * 
 	 * <pre>
 	 * {@code
@@ -117,7 +118,7 @@ public class Akatsuki {
 	 * }
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * @param view
 	 *            the view containing annotated fields
 	 * @param parcelable
@@ -134,16 +135,17 @@ public class Akatsuki {
 	/**
 	 * For restoring states saved by {@link #save(View, Parcelable)}.Typical
 	 * usage looks like:
+	 * <p>
 	 * 
 	 * <pre>
-	 * {@code 
+	 * {@code
 	 * &#64;Override
 	 * protected void onRestoreInstanceState(Parcelable state) {
 	 *  super.onRestoreInstanceState(Akatsuki.restore(this, state));
 	 * }
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * @param view
 	 *            the view that requires restoring
 	 * @param parcelable
@@ -174,7 +176,7 @@ public class Akatsuki {
 
 	/**
 	 * Deserialize the given bundle into the original instance
-	 * 
+	 *
 	 * @param instance
 	 *            the instantiated instance
 	 * @param bundle
@@ -190,13 +192,12 @@ public class Akatsuki {
 	 * Same as {@link #deserialize(Object, Bundle)} but with a
 	 * {@link InstanceSupplier} so that the instance can be instantiated without
 	 * creating an instance first
-	 * 
+	 *
 	 * @param supplier
 	 *            the instance supplier
 	 * @param bundle
 	 *            the bundle
 	 * @return deserialized instance
-	 * 
 	 */
 	public static <T> T deserialize(InstanceSupplier<T> supplier, Bundle bundle) {
 		final T t = supplier.create();
@@ -206,7 +207,7 @@ public class Akatsuki {
 	/**
 	 * An interface that supplies {@link #deserialize(InstanceSupplier, Bundle)}
 	 * an working instance
-	 * 
+	 *
 	 * @param <T>
 	 *            the type of the instance
 	 */
@@ -224,77 +225,14 @@ public class Akatsuki {
 		if (instance == null) {
 			if (loggingLevel == LoggingLevel.VERBOSE)
 				Log.i(TAG, "cache miss for class " + fqcn);
-			instance = createRetainer(Thread.currentThread().getContextClassLoader(), retainerCache,
-					fqcn, clazz.getClass());
+			instance = Internal.createRetainer(Thread.currentThread().getContextClassLoader(),
+					retainerCache, fqcn, clazz.getClass());
 			CLASS_CACHE.put(fqcn, instance);
 		} else {
 			if (loggingLevel == LoggingLevel.VERBOSE)
 				Log.i(TAG, "cache hit for class" + fqcn);
 		}
 		return instance;
-	}
-
-	/**
-	 * Finds the {@link BundleRetainer} class and instantiate it. You would not
-	 * normally need this, this method does not do any caching and is desinged
-	 * to be used from classes that require access to a fresh
-	 * {@link BundleRetainer} instance
-	 * 
-	 * @param fqcn
-	 *            the fully qialified class name of the instance
-	 * @param clazz
-	 *            the {@link Class} of the instance
-	 * @param <T>
-	 *            the type of the annotated instance
-	 * @return the {@link BundleRetainer}
-	 */
-	public static <T> BundleRetainer<T> createRetainer(ClassLoader loader, RetainerCache cache,
-			String fqcn, Class<?> clazz) {
-		final BundleRetainer<T> instance;
-		try {
-			Class<? extends BundleRetainer> retainerClass = null;
-			if (cache != null)
-				retainerClass = cache.getCached(fqcn);
-			if (retainerClass == null) {
-				try {
-					retainerClass = (Class<? extends BundleRetainer>) Class
-							.forName(generateRetainerClassName(fqcn), true, loader);
-				} catch (ClassNotFoundException ignored) {
-					// can't find it, moving on
-				}
-			}
-			if (retainerClass == null)
-				retainerClass = (Class<? extends BundleRetainer>) findClass(loader, clazz);
-			if (retainerClass == null)
-				throw new RuntimeException("Unable to find generated class for " + fqcn
-						+ ", does the class contain any fields annotated with @Retain(inherited class works too)?");
-			instance = retainerClass.newInstance();
-		} catch (ClassCastException e) {
-			throw new RuntimeException(
-					fqcn + "does not implement BundleRetainer or has the wrong generic "
-							+ "parameter, this is weird",
-					e);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-		return instance;
-	}
-
-	/**
-	 * Traverse the class hierachy to find correct BundleRetainer
-	 */
-	private static Class<?> findClass(ClassLoader loader, Class<?> clazz) {
-		final String name = clazz.getName();
-		if (name.startsWith("android.") || name.startsWith("java."))
-			return null;
-		String generatedClassName = generateRetainerClassName(name);
-		try {
-			if (loggingLevel == LoggingLevel.VERBOSE)
-				Log.i(TAG, "traversing hieraichy to find retainer for class " + clazz);
-			return Class.forName(generatedClassName, true, loader);
-		} catch (ClassNotFoundException e) {
-			return findClass(loader, clazz.getSuperclass());
-		}
 	}
 
 	private static void discardCache() {
@@ -304,7 +242,7 @@ public class Akatsuki {
 	/**
 	 * Finds the converter from the cache or create one. <b>This is not the
 	 * method you are looking for</b>
-	 * 
+	 *
 	 * @param key
 	 *            the class of the converter
 	 */
@@ -320,18 +258,6 @@ public class Akatsuki {
 			CACHED_CONVERTERS.put(key, converter);
 		}
 		return converter;
-	}
-
-	/**
-	 * Create the name for the generated class. <b>This is not the method you
-	 * are looking for</b>
-	 * 
-	 * @param prefix
-	 *            the class name
-	 * 
-	 */
-	public static String generateRetainerClassName(CharSequence prefix) {
-		return prefix + "$$" + BundleRetainer.class.getSimpleName();
 	}
 
 }

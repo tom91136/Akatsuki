@@ -25,7 +25,7 @@ public @interface TransformationTemplate {
 
 	/**
 	 * The template for saving (e.g. outState.putInt("myInt", myInt);). The
-	 * template uses mustache. <br />
+	 * template uses mustache. <p>
 	 * Provided variables:
 	 * <ol>
 	 * <li>{{fieldName}} - the field name of the variable to be saved</li>
@@ -49,7 +49,7 @@ public @interface TransformationTemplate {
 
 	/**
 	 * The restore template. See {@link #save()} for explanation on how
-	 * templates work. <br /> Provided variables:
+	 * templates work. <p> Provided variables:
 	 * <ol>
 	 * <li>{{fieldName}} - the field name of the variable to be saved</li>
 	 * <li>{{keyName}} - a unique key that does not collide with other keys</li>

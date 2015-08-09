@@ -2,9 +2,9 @@ package com.sora.util.akatsuki.compiler;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
-import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.DummyTypeConverter;
+import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
@@ -92,7 +92,7 @@ public class BundleRetainerModel {
 		} else {
 			enclosingName = enclosingClass.getSimpleName().toString();
 		}
-		return Akatsuki.generateRetainerClassName(enclosingName);
+		return Internal.generateRetainerClassName(enclosingName);
 	}
 
 	public TypeElement enclosingClass() {
