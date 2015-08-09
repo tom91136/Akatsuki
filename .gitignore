@@ -78,4 +78,6 @@ gradlew
 gradlew.bat
 gradle
 
+config.properties
+
 
