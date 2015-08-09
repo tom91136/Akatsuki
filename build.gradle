@@ -29,6 +29,14 @@ ext {
     gitUrl = 'https://github.com/tom91136/Akatsuki.git'
 }
 
+Properties properties = new Properties()
+def file = file('../config.properties')
+if (file.exists()) {
+    properties.load(file.newDataInputStream())
+} else {
+    properties.setProperty("bintray.user", "foo");
+    properties.setProperty("bintray.apikey", "bar");
+}
 
 
 subprojects {
@@ -37,8 +45,6 @@ subprojects {
 
     bintray {
 
-        Properties properties = new Properties()
-        properties.load(file('../config.properties').newDataInputStream())
 
         user = properties.getProperty("bintray.user")
         key = properties.getProperty("bintray.apikey")
