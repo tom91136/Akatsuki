@@ -1,4 +1,5 @@
 language: android
+script: "./gradlew build"
 android:
   components:
     - platform-tools

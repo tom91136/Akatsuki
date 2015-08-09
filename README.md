@@ -2,6 +2,7 @@ Akatsuki
 ============
 
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat)](https://android-arsenal.com/details/1/2230)
+[![Build Status](https://travis-ci.org/tom91136/Akatsuki.svg)](https://travis-ci.org/tom91136/Akatsuki)
 
 **This library is complete and functional but I would like to make sure everything works so no artifacts yet!**
 
