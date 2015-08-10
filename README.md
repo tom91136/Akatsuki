@@ -199,10 +199,9 @@ NOTE: The use of field hiding is discouraged as it makes code hard to follow.
 
 
 
-<a name="parceler></a>Parceler support
+Parceler support
 ----------------
-
-Akatsuki supports [Parceler](https://github.com/johncarl81/parceler) annotated beans
+<a name="parceler></a>Akatsuki supports [Parceler](https://github.com/johncarl81/parceler) annotated beans
 Simply add `@IncludeClasses(ParcelerSupport.class)` to any class in your project.(MainActivity or your custom Application class perhaps).
 And don't forget to import:
 ```groovy
