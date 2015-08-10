@@ -10,13 +10,6 @@ buildscript {
     }
 }
 
-
-allprojects {
-    repositories {
-        jcenter()
-    }
-}
-
 ext {
     userId = 'tom91136'
     userName = 'Tom Lin'
@@ -29,8 +22,20 @@ ext {
     gitUrl = 'https://github.com/tom91136/Akatsuki.git'
 }
 
+
+allprojects {
+    repositories {
+        jcenter()
+    }
+
+    group = publishedGroupId
+    version = publishVersion
+
+}
+
+
 Properties properties = new Properties()
-def file = file('../config.properties')
+def file = file('config.properties')
 if (file.exists()) {
     properties.load(file.newDataInputStream())
 } else {

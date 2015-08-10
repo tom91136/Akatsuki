@@ -96,7 +96,7 @@ public static class MyView extends View {
 	}
 }
 ```
-Because `Bundle` is just a type safe container for `Parcel`, you can also use Akatsuki like so:
+<a name="nested-retain"></a>Because `Bundle` is just a type safe container for `Parcel`, you can also use Akatsuki like so:
 
 ```java
 // you can have some bean
@@ -199,19 +199,97 @@ NOTE: The use of field hiding is discouraged as it makes code hard to follow.
 
 
 
-Parceler support
+<a name="parceler></a>Parceler support
 ----------------
 
 Akatsuki supports [Parceler](https://github.com/johncarl81/parceler) annotated beans
 Simply add `@IncludeClasses(ParcelerSupport.class)` to any class in your project.(MainActivity or your custom Application class perhaps).
 And don't forget to import:
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-parceler:${version}'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
 ```
+
+
+TypeConverters
+--------------
+Akatsuki supports pluggable `TypeConverter`s , this allows you to support any type by writing a `TypeConverter` for it. 
+
+Here's a custom type:
+```java
+public class Foo {
+	String name;
+	int id;
+	Date timestamp;
+	// more stuff
+}
+```
+The `TypeConverter` would look something like this:
+```java
+public class FooConverter implements TypeConverter<Foo> {
+	@Override
+	public void save(Bundle bundle, Foo foo, String key) {
+		bundle.putString(key + "name", foo.name);
+		bundle.putInt(key + "id", foo.id);
+		// Date.toString() is for illustration purpose only, do not use!
+		bundle.putString(key + "timestamp", foo.timestamp.toString());
+	}
+	@Override
+	public Foo restore(Bundle bundle, Foo foo, String key) {
+		foo.name = bundle.getString(key + "name");
+		foo.id = bundle.getInt(key + "id");
+		// new Date(String) is for illustration purpose only, do not use!
+		foo.timestamp = new Date(bundle.getString(key + "timestamp"));
+		return foo;
+	}
+}
+```
+The example above can be simpler:
+```java
+public class BetterFooConverter extends MultiKeyTypeConverter<Foo> {
+	@Override
+	protected String[] saveMultiple(Bundle bundle, Foo foo) {
+		String[] keys = generateKey(3);
+		bundle.putString(keys[0], foo.name);
+		bundle.putInt(keys[1], foo.id);
+		bundle.putString(keys[2], foo.timestamp.toString());
+		return keys;
+	}
+	@Override
+	protected Foo restoreMultiple(Bundle bundle, Foo foo, String[] keys) {
+		foo.name = bundle.getString(keys[0]);
+		foo.id = bundle.getInt(keys[1]);
+		foo.timestamp = new Date(bundle.getString(keys[2]));
+		return foo;
+	}
+}
+```
+To let Akatsuki know about the converter, simply use:
+
+```java
+@Retained(converter = BetterFooConverter.class) Foo myFoo;
+```
+or if you have many fields, register the converter so that `Foo` automatically uses the converter:
+```java
+@DeclaredConverter(@TypeConstraint(types = Foo.class))
+public class BetterFooConverter extends MultiKeyTypeConverter<Foo> {
+	// ...
+}
+```
+Using converters do incur a tiny performance impact as the converter has to be instantiated before the type can be properly serialized(Only once through reflection). Also, custom types can also have `@Retained` like described [here](#nested-retain).
+In that case we can just add `@Retained` to all the fields like:
+```java
+public class Foo {
+	@Retained String name;
+	@Retained int id;
+	@Retained Date timestamp; // not supported natively...
+}
+```
+And write your custom `TypeConverter` just for the `Date` type. 
+It's up to you to decide whether you want a `TypeConverter` or annotate fields with `@Retained`. Normally you would prefer `@Retianed` for codes that you control and `TypeConverter` for other types that you cannot modify(eg: types from another library ).
 
 @TransformationTemplate
 ----------------------
-`@TransformationTemplate` allows you to support arbitrary types. To understand how this works, here's the what the class `ParcelerSupport` actually looks like:
+`@TransformationTemplate` allows you to support arbitrary types. This is the zero performance impact alternative to `TypeConverter`. To understand how this works, here's the what the class `ParcelerSupport` actually looks like:
 
 ```java
 @TransformationTemplate(
@@ -223,10 +301,12 @@ public class ParcelerSupport {
     // dummy class, any class in the project will work
 }
 ```
-Parceler annotated beans need `Parcels.wrap()` and `Parcels.unwrap()` before the object becomes usable. In the example above, we simply create a code template that includes the custom logic for wrapping and unwrapping Parceler objects.
+ [Parceler](https://github.com/johncarl81/parceler) annotated beans need `Parcels.wrap()` and `Parcels.unwrap()` before the object becomes usable. In the example above, we simply create a code template that includes the custom logic for wrapping and unwrapping Parceler objects.
 Akatsuki uses [mustache](https://mustache.github.io/) to convert the template into code that gets emitted into the generated source file. Everything is done in compile time so there will be no runtime cost. The `@TransformationTemplate` annotation has a retention of `RetentionPolicy.CLASS` so that it has no effect in runtime while other libraries using the annotation could still retain the template. For more information on how to write Transformation templates, the [javadoc]() contains examples and docs for all methods in the annotation.
 
-Due to a limitation of APT, if the template is located in another library, you have to include the class that is annotated with `@TransformationTemplate`  with `@IncludeClasses(TheClass.class)`, see the [Parceler support section ](#Parceler%20support) for more info.
+Due to a limitation of APT, if the template is located in another library, you have to include the class that is annotated with `@TransformationTemplate`  with `@IncludeClasses(TheClass.class)`, see the [Parceler support section ](#parceler) for more info.
+
+**Warning: `@TransformationTemplate` does not do any validation on the templates, however,  syntax errors does prevent your project from compiling which can save you from debugging heedlessly.**
 
 Why another library?
 --------
@@ -234,10 +314,16 @@ Currently, we have [Icepick](https://github.com/frankiesardo/icepick) and possib
 
 Download
 --------
+
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-api:${version}'
-apt 'com.sora.util.akatsuki:akatsuki-compiler:${version}'
+ compile 'com.sora.util.akatsuki:akatsuki-api:0.0.1'
+ apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.1'
 ```
+Optional parceler support:
+```groovy
+ compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
+```
+
 
 License
 -------

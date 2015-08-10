@@ -10,7 +10,7 @@ public final class DummyTypeConverter implements TypeConverter<Void> {
 	}
 
 	@Override
-	public Void restore(Bundle bundle, String key) {
+	public Void restore(Bundle bundle, Void ignored, String key) {
 		throw new RuntimeException("DummyTypeConverter should not be used directly");
 	}
 

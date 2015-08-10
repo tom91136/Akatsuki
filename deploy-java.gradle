@@ -1,8 +1,5 @@
 apply plugin: 'maven'
 
-group = publishedGroupId
-version = publishVersion
-
 configurations {
     published
 }

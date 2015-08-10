@@ -354,8 +354,9 @@ public class CodeGenerationTest extends TestBase {
 		}
 
 		@Override
-		public StringObject restore(Bundle bundle, String key) {
-			return new StringObject(bundle.getString(key));
+		public StringObject restore(Bundle bundle, StringObject stringObject, String key) {
+			stringObject.actualString = bundle.getString(key);
+			return stringObject;
 		}
 	}
 

@@ -18,10 +18,10 @@ public abstract class MultiKeyTypeConverter<T> implements TypeConverter<T> {
 	}
 
 	@Override
-	public final T restore(Bundle bundle, String key) {
+	public final T restore(Bundle bundle, T t, String key) {
 		final Bundle b = bundle.getBundle(key);
 		final String[] keys = b.getStringArray(KEYS);
-		return restoreMultiple(b, keys);
+		return restoreMultiple(b, t, keys);
 	}
 
 	/**
@@ -41,11 +41,13 @@ public abstract class MultiKeyTypeConverter<T> implements TypeConverter<T> {
 	 * 
 	 * @param bundle
 	 *            the bundle
+	 * @param t
+	 *            the instance
 	 * @param keys
-	 *            the keys from {@link #saveMultiple(Bundle, Object)}
-	 * @return the restored type
+	 *            the keys from {@link #saveMultiple(Bundle, Object)} @return
+	 *            the restored type
 	 */
-	protected abstract T restoreMultiple(Bundle bundle, String[] keys);
+	protected abstract T restoreMultiple(Bundle bundle, T t, String[] keys);
 
 	/**
 	 * Generates an array of keys with the given size

@@ -1,8 +1,5 @@
 apply plugin: 'com.github.dcendents.android-maven'
 
-group = publishedGroupId
-version = publishVersion
-
 task sourcesJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
     classifier = 'sources'

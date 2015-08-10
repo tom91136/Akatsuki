@@ -33,7 +33,8 @@ public final class InvalidTypeConverter<T> implements TypeConverter<T> {
 	}
 
 	@Override
-	public T restore(Bundle bundle, String key) {
-		throw new RuntimeException("Unable to find a TypeConverter for field  " + key, e);
+	public T restore(Bundle bundle, T t, String key) {
+		throw new RuntimeException("Unable to find a TypeConverter for field  " + key + ", type="
+				+ (t == null ? "null" : t.getClass()), e);
 	}
 }

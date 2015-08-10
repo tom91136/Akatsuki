@@ -46,7 +46,7 @@ public class ConverterTransformation extends FieldTransformation<TypeMirror> {
 		if (context.type == InvocationType.SAVE) {
 			template = "{{akatsuki}}.converter({{class}}).save({{bundle}}, {{fieldName}}, \"{{keyName}}\")";
 		} else {
-			template = "{{fieldName}} = {{akatsuki}}.converter({{class}}).restore({{bundle}}, \"{{keyName}}\")";
+			template = "{{fieldName}} = {{akatsuki}}.converter({{class}}).restore({{bundle}}, {{fieldName}}, \"{{keyName}}\")";
 		}
 		return new MustacheTemplateSupplier(scope, template);
 	}

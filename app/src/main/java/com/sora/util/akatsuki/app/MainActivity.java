@@ -25,10 +25,6 @@ public class MainActivity extends AppCompatActivity {
 	@Bind(R.id.persisted) EditText persisted;
 
 
-
-
-
-
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -36,13 +32,6 @@ public class MainActivity extends AppCompatActivity {
 		ButterKnife.bind(this);
 
 		Akatsuki.restore(this, savedInstanceState);
-
-
-
-
-
-
-
 
 		persisted.setText(myString);
 		persisted.addTextChangedListener(new TextWatcher() {
