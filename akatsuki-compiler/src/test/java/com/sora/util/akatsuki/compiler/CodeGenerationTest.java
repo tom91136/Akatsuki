@@ -41,11 +41,17 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.Primitives;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
+import com.sora.util.akatsuki.DeclaredConverter;
 import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.RetainerCache;
+import com.sora.util.akatsuki.TransformationTemplate;
+import com.sora.util.akatsuki.TransformationTemplate.Execution;
+import com.sora.util.akatsuki.TypeConstraint;
+import com.sora.util.akatsuki.TypeConstraint.Bound;
+import com.sora.util.akatsuki.TypeConverter;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.AccessorKeyPair;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.FieldFilter;
 import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
@@ -53,6 +59,7 @@ import com.sora.util.akatsuki.compiler.Field.RetainedField;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.FieldSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 
 import org.junit.Assert;
@@ -61,6 +68,10 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.io.Serializable;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -69,6 +80,7 @@ import java.lang.reflect.Type;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -76,6 +88,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.lang.model.element.Modifier;
@@ -266,15 +279,66 @@ public class CodeGenerationTest extends TestBase {
 	}
 
 	@Test
-	public void testGenericType()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+	public void testGenericType() {
 		testGenericType(Parcelable.class);
 	}
 
 	@Test
-	public void testIntersectionType()
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+	public void testIntersectionType() {
 		testGenericType(Parcelable.class, Serializable.class);
+	}
+
+	@Test
+	public void testTransformationTemplateClassConstraint() {
+		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class);
+	}
+
+	@Test(expected = RuntimeException.class)
+	public void testTransformationTemplateInvalidClassConstraint() {
+		// should not match anything and fail to compile
+		testTransformationTemplate(Bound.EXACTLY, StringObject.class, BaseStringObject.class);
+	}
+
+	@Test
+	public void testTransformationTemplateSubClassConstraint() {
+		testTransformationTemplate(Bound.EXTENDS, StringObject.class, InheritedStringObject.class);
+	}
+
+	@Test
+	public void testTransformationTemplateSuperClassConstraint() {
+		testTransformationTemplate(Bound.SUPER, StringObject.class, BaseStringObject.class);
+	}
+
+	@Test
+	public void testTransformationTemplateAnnotationConstraint() {
+		testTransformationTemplate(Bound.EXACTLY, StringObject.class, RandomAnnotation.class);
+
+	}
+
+	@Test
+	public void testTransformationTemplateInheritedAnnotationConstraint() {
+		testTransformationTemplate(Bound.EXTENDS, InheritedStringObject.class,
+				RandomAnnotation.class);
+		testTransformationTemplate(Bound.SUPER, InheritedStringObject.class,
+				RandomAnnotation.class);
+
+	}
+
+	@Test
+	public void testTransformationTemplateMixedConstraint() {
+		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class,
+				RandomAnnotation.class);
+
+	}
+
+	@Test
+	public void testTypeConverter() {
+		testTypeConverter(false);
+	}
+
+	@Test
+	public void testRegisteredTypeConverter() {
+		testTypeConverter(true);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -282,18 +346,124 @@ public class CodeGenerationTest extends TestBase {
 		return Array.newInstance(clazz, 0).getClass();
 	}
 
-	@SuppressWarnings("unchecked")
-	private static <T> T newInstance(Class<?> clazz)
-			throws IllegalAccessException, InstantiationException {
-		return (T) clazz.newInstance();
+	public static class StringObjectTypeConverter implements TypeConverter<StringObject> {
+
+		@Override
+		public void save(Bundle bundle, StringObject stringObject, String key) {
+			bundle.putString(key, stringObject.actualString);
+		}
+
+		@Override
+		public StringObject restore(Bundle bundle, String key) {
+			return new StringObject(bundle.getString(key));
+		}
+	}
+
+	private void testTypeConverter(boolean registered) {
+		final Field retainedField = new Field(StringObject.class, "a",
+				"new " + StringObject.class.getCanonicalName() + "(\"A\")");
+		final Builder fieldBuilder = retainedField.fieldSpecBuilder();
+		final ArrayList<JavaSource> sources = new ArrayList<>();
+		if (registered) {
+			fieldBuilder.addAnnotation(Retained.class);
+			final AnnotationSpec declaredConverterAnnotation = AnnotationSpec
+					.builder(DeclaredConverter.class)
+					.addMember("value", "$L",
+							AnnotationSpec.builder(TypeConstraint.class)
+									.addMember("types", "$T.class", StringObject.class).build())
+					.build();
+
+			final String converterName = generateClassName();
+			JavaSource converter = new JavaSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
+					.builderTransformer(
+							(builder, source) -> builder.superclass(StringObjectTypeConverter.class)
+									.addAnnotation(declaredConverterAnnotation));
+			sources.add(converter);
+
+		} else {
+			fieldBuilder.addAnnotation(AnnotationSpec.builder(Retained.class)
+					.addMember("converter", "$T.class", StringObjectTypeConverter.class).build());
+		}
+		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
+				Modifier.PUBLIC).fields(fieldBuilder.build());
+		// out test class always goes in front
+		sources.add(0, testClass);
+		final TestEnvironment environment = new TestEnvironment(this, sources);
+		environment.invokeSaveAndRestore();
+	}
+
+	@Target(ElementType.TYPE)
+	@Retention(RetentionPolicy.RUNTIME)
+	public @interface RandomAnnotation {
+
+	}
+
+	public static abstract class BaseStringObject {
+
+	}
+
+	@RandomAnnotation
+	public static class StringObject extends BaseStringObject {
+		private String actualString;
+
+		public StringObject(String actualString) {
+			this.actualString = actualString;
+		}
+
+		public static String wrap(StringObject object) {
+			return object == null ? null : object.actualString;
+		}
+
+		public static StringObject unwrap(String actualString) {
+			return new StringObject(actualString);
+		}
+	}
+
+	public static class InheritedStringObject extends StringObject {
+
+		public InheritedStringObject(String actualString) {
+			super(actualString);
+		}
+	}
+
+	private void testTransformationTemplate(Bound bound, Class<?> staticClass,
+			Class<?>... constraints) {
+		final String objectFqcn = staticClass.getCanonicalName();
+		final AnnotationSpec constraintsSpec = AnnotationSpec.builder(TypeConstraint.class)
+				.addMember("types", "{$L}",
+						Arrays.stream(constraints).map(c -> c.getCanonicalName() + "" + ".class")
+								.collect(Collectors.joining(",")))
+				.addMember("bound", "$T.$L", Bound.class, bound).build();
+
+		final AnnotationSpec annotationSpec = AnnotationSpec.builder(TransformationTemplate.class)
+				.addMember("save", "$S",
+						"{{bundle}}.putString(\"{{keyName}}\", " + objectFqcn + ".wrap"
+								+ "({{fieldName}}))")
+				.addMember("restore", "$S",
+						"{{fieldName}} = " + objectFqcn + ".unwrap({{bundle}}.getString"
+								+ "(\"{{keyName}}\"))")
+				.addMember("constraints", "$L", constraintsSpec)
+				.addMember("execution", "$T.$L", Execution.class, Execution.BEFORE).build();
+
+		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
+				Modifier.PUBLIC).fields(
+						new RetainedField(StringObject.class, "a", "new " + objectFqcn + "(\"A\")")
+								.createFieldSpec());
+		testClass.builderTransformer((builder, source) -> builder.addAnnotation(annotationSpec));
+
+		final TestEnvironment environment = new TestEnvironment(this, testClass);
+
+		environment.invokeSaveAndRestore();
+		environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
+				Collections.singleton(new RetainedField(String.class, "a")));
 	}
 
 	private TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
 		final JavaSource superClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-				Modifier.PUBLIC).fields(first.fieldSpecBuilder().build());
+				Modifier.PUBLIC).fields(first.createFieldSpec());
 		final JavaSource subclass = new JavaSource(TEST_PACKAGE,
 				TEST_CLASS + "Client" + generateClassName(), Modifier.PUBLIC)
-						.fields(second.fieldSpecBuilder().build()).superClass(superClass);
+						.fields(second.createFieldSpec()).superClass(superClass);
 		return new TestEnvironment(this, subclass, superClass);
 	}
 
@@ -374,6 +544,8 @@ public class CodeGenerationTest extends TestBase {
 
 	public static class TestEnvironment {
 
+		private final List<JavaSource> sources;
+
 		public enum Accessor {
 			PUT, GET
 		}
@@ -388,6 +560,7 @@ public class CodeGenerationTest extends TestBase {
 		private final Result result;
 
 		public TestEnvironment(TestBase base, List<JavaSource> sources) {
+			this.sources = sources;
 			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 					base.processors(), sources.stream().map(JavaSource::generateFileObject)
 							.toArray(JavaFileObject[]::new));
@@ -406,7 +579,7 @@ public class CodeGenerationTest extends TestBase {
 				}
 				retainer = Internal.createRetainer(result.classLoader, retainerCache, fqcn,
 						testClass);
-				mockedSource = mock(testClass);
+				mockedSource = testClass.newInstance();
 				mockedBundle = mock(Bundle.class);
 			} catch (Exception e) {
 				throw new RuntimeException(
@@ -443,7 +616,22 @@ public class CodeGenerationTest extends TestBase {
 		}
 
 		public String printAllSources() {
-			return result.printAllSources();
+			StringBuilder builder = new StringBuilder("\nCompiler Input:\n");
+			final Pattern newLinePattern = Pattern.compile("\\r?\\n");
+			for (JavaSource source : sources) {
+				builder.append("Fully qualified name: ").append(source.fqcn()).append("\n");
+				final String sourceCode = source.generateSource();
+				final String[] lines = newLinePattern.split(sourceCode);
+				String format = String.format("%%0%dd", String.valueOf(lines.length).length());
+				for (int i = 0; i < lines.length; i++) {
+					builder.append(String.format(format, i + 1)).append('.').append(lines[i]);
+					if (i != lines.length - 1)
+						builder.append("\n");
+				}
+				builder.append("\n===================\n");
+			}
+			builder.append(result.printGeneratedSources());
+			return builder.toString();
 		}
 
 		public void testSaveRestoreInvocation(Predicate<String> namePredicate,

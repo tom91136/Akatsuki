@@ -135,14 +135,14 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
 		for (Element element : elements) {
-			if (!utils().isAssignable(utils().of(TypeConverter.class), element.asType(), true)) {
+			if (!utils().isAssignable(element.asType(),utils().of(TypeConverter.class), true)) {
 				messager().printMessage(Kind.ERROR,
 						"@DeclaredConverter can only be used on types that implement TypeConverter",
 						element);
 			}
 		}
 		return elements.stream()
-				.map(e -> new DeclaredConverterModel((DeclaredType) e,
+				.map(e -> new DeclaredConverterModel((DeclaredType) e.asType(),
 						e.getAnnotation(DeclaredConverter.class).value()))
 				.collect(Collectors.toList());
 	}

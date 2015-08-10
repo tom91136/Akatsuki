@@ -3,6 +3,7 @@ package com.sora.util.akatsuki.compiler;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.TypeConverter;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
@@ -93,6 +94,7 @@ public class Field {
 	public static class RetainedField extends Field {
 
 		private boolean skip;
+		private Class<? extends TypeConverter<?>> typeConverterClass;
 
 		public RetainedField(Class<?> clazz, Class<?>... parameters) {
 			super(clazz, parameters);
@@ -111,8 +113,17 @@ public class Field {
 			return skip;
 		}
 
+		public Class<? extends TypeConverter<?>> typeConverter() {
+			return typeConverterClass;
+		}
+
 		public RetainedField skip(boolean skip) {
 			this.skip = skip;
+			return this;
+		}
+
+		public RetainedField typeConverter(Class<? extends TypeConverter<?>> typeConverterClass) {
+			this.typeConverterClass = typeConverterClass;
 			return this;
 		}
 
@@ -123,15 +134,21 @@ public class Field {
 			if (skip) {
 				annotationBuilder.addMember("skip", "$L", true);
 			}
+			if (typeConverterClass != null) {
+				annotationBuilder.addMember("converter", "$T.class", typeConverterClass);
+			}
 			builder.addAnnotation(annotationBuilder.build());
 			return builder;
 		}
 
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
-			if (!super.equals(o)) return false;
+			if (this == o)
+				return true;
+			if (o == null || getClass() != o.getClass())
+				return false;
+			if (!super.equals(o))
+				return false;
 			RetainedField that = (RetainedField) o;
 			return Objects.equal(skip, that.skip);
 		}

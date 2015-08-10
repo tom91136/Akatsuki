@@ -88,7 +88,7 @@ public class CompilerUtils {
 			this.sources = sources;
 		}
 
-		public String printAllSources() {
+		public String printGeneratedSources() {
 			return CompilerUtils.printAllSources(sources);
 		}
 	}

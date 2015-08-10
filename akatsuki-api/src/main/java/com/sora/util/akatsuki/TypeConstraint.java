@@ -28,8 +28,12 @@ public @interface TypeConstraint {
 	Class<?>[]types();
 
 	/**
-	 * Bounds for class type matching. (This has no effect on annotation classes
-	 * because inheritance is not supported)
+	 * Bounds for class type matching. (When used on an annotation class, the
+	 * bound applies to the annotated element, see fields in
+	 * {@link com.sora.util.akatsuki.TypeConstraint.Bound} for more details).
+	 * <p>
+	 * If different bounds are required for different types, you can use
+	 * multiple {@link TypeConstraint}s together
 	 *
 	 */
 	Bound bound() default Bound.EXACTLY;
@@ -39,12 +43,16 @@ public @interface TypeConstraint {
 	 */
 	enum Bound {
 		/**
-		 * Has the same meaning of {@code A.class.equals(B.class)}
+		 * Has the same meaning of {@code A.class.equals(B.class)}. If used on
+		 * annotations,the bound matches classes that is being annotated
+		 * directly.
 		 */
 		EXACTLY,
 
 		/**
-		 * Has the same meaning of {@code A.class.isAssignableFrom(B.class)}
+		 * Has the same meaning of {@code A.class.isAssignableFrom(B.class)}. If
+		 * used on annotations, the bound matches classes that inherits from a
+		 * class that contains the annotation.
 		 */
 
 		EXTENDS,
@@ -53,7 +61,8 @@ public @interface TypeConstraint {
 		 * Has the same meaning of
 		 * {@code A.class.equals(B.class.getSuperclass())} where the inheritance
 		 * hierarchy is transversed and checked for equality all the way up to
-		 * {@link Object}
+		 * {@link Object}. If used on annotations, the bound matches classes
+		 * that inherits from a class that contains the annotation.
 		 */
 		SUPER
 	}

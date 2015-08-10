@@ -31,6 +31,7 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -43,6 +44,7 @@ import java.util.Set;
 
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -51,6 +53,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
@@ -315,29 +318,63 @@ public class BundleRetainerModel {
 		}
 
 		private boolean testTypeConstraint(TypeMirror mirror, TypeConstraint... constraints) {
-			return Arrays.stream(constraints).anyMatch(c -> {
-				final List<DeclaredType> mirrors = context.utils()
-						.getClassArrayFromAnnotationMethod(c::types);
-				switch (c.bound()) {
-				case EXACTLY:
-					return mirrors.stream()
-							.anyMatch(m -> context.utils().isSameType(mirror, m, true));
-				case EXTENDS:
-					return mirrors.stream()
-							.anyMatch(m -> context.utils().isAssignable(mirror, m, true));
-				case SUPER:
-					return mirrors.stream().anyMatch(m -> {
-						while (m != null) {
-							m = (DeclaredType) ((TypeElement) m.asElement()).getSuperclass();
-							if (context.utils().isSameType(mirror, m, true))
-								return true;
+			return Arrays.stream(constraints).anyMatch(constraint -> {
+				final List<DeclaredType> constraintType = context.utils()
+						.getClassArrayFromAnnotationMethod(constraint::types);
+
+				for (DeclaredType type : constraintType) {
+					// annotation types are handled differently
+					if (context.utils().isAssignable(type, context.utils().of(Annotation.class),
+							true)) {
+
+						// TODO how do we get the element of PrimitiveType? this
+						// seems wrong...
+						final Element element = (mirror instanceof PrimitiveType)
+								? context.types().boxedClass((PrimitiveType) mirror)
+								: context.types().asElement(mirror);
+
+						System.out.println("ele " + element + " mm -> " + mirror);
+						List<? extends AnnotationMirror> annotationMirrors;
+						// bounds have different meanings for annotations as
+						// they don't have inheritance
+						switch (constraint.bound()) {
+						case EXACTLY:
+							annotationMirrors = element.getAnnotationMirrors();
+							break;
+						default:
+							annotationMirrors = context.elements().getAllAnnotationMirrors(element);
+							break;
 						}
-						return false;
-					});
+						if (annotationMirrors.stream().anyMatch(
+								m -> context.utils().isSameType(m.getAnnotationType(), type, true)))
+							return true;
+					}
+
+					switch (constraint.bound()) {
+					case EXACTLY:
+						if (context.utils().isSameType(type, mirror, true))
+							return true;
+						break;
+					case EXTENDS:
+						if (context.utils().isAssignable(type, mirror, true))
+							return true;
+						break;
+					case SUPER:
+						// traverse class hierarchy
+						TypeMirror superType = mirror;
+						while (superType != null && superType.getKind() != TypeKind.NONE) {
+							if (context.utils().isSameType(type, superType, true))
+								return true;
+							superType = ((TypeElement) context.types().asElement(superType))
+									.getSuperclass();
+						}
+						break;
+					}
 				}
 				return false;
 			});
 		}
+
 	}
 
 	public void writeSourceToFile(Filer filer, List<TransformationTemplate> templates,

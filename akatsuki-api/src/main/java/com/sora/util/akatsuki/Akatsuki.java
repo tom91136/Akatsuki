@@ -5,7 +5,6 @@ import android.os.Parcelable;
 import android.util.Log;
 import android.view.View;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -15,9 +14,9 @@ import java.util.WeakHashMap;
 @SuppressWarnings("ALL")
 public class Akatsuki {
 
-	private static final WeakHashMap<String, BundleRetainer<?>> CLASS_CACHE = new WeakHashMap<>();
+	private static final Map<String, BundleRetainer<?>> CLASS_CACHE = new WeakHashMap<>();
 
-	private static final Map<Class<? extends TypeConverter<?>>, TypeConverter<?>> CACHED_CONVERTERS = new HashMap<>();
+	private static final Map<Class<? extends TypeConverter<?>>, TypeConverter<?>> CACHED_CONVERTERS = new WeakHashMap<>();
 
 	public static final String RETAINER_CACHE_NAME = "AkatsukiMapping";
 	public static final String RETAINER_CACHE_PACKAGE = "com.sora.util.akatsuki";
