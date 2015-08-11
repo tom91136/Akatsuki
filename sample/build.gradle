@@ -29,3 +29,5 @@ dependencies {
     apt project(':akatsuki-compiler')
     compile 'com.jakewharton:butterknife:7.0.1'
 }
+
+apply from: file('../deploy-sample.gradle')
