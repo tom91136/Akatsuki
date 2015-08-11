@@ -1,32 +1,11 @@
-apply plugin: 'maven'
-
-configurations {
-    published
-}
-
-
-task sourceJar(type: Jar) {
-    from sourceSets.main.allSource
-    classifier = 'sources'
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from javadoc.destinationDir
-}
-
-artifacts {
-    archives javadocJar
-    archives sourceJar
-}
-
+apply plugin: 'com.github.dcendents.android-maven'
 
 
 install {
     repositories.mavenInstaller {
         pom {
             project {
-                packaging 'jar'
+                packaging 'apk'
                 groupId publishedGroupId
                 artifactId project.name
                 name publishName
