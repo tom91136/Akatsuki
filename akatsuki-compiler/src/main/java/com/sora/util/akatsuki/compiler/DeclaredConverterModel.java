@@ -16,7 +16,7 @@
 
 package com.sora.util.akatsuki.compiler;
 
-import com.sora.util.akatsuki.TypeConstraint;
+import com.sora.util.akatsuki.TypeFilter;
 
 import javax.lang.model.type.DeclaredType;
 
@@ -27,10 +27,10 @@ import javax.lang.model.type.DeclaredType;
 public class DeclaredConverterModel {
 
 	public final DeclaredType converter;
-	public final TypeConstraint[] constraint;
+	public final TypeFilter[] filters;
 
-	public DeclaredConverterModel(DeclaredType converter, TypeConstraint[] constraint) {
+	public DeclaredConverterModel(DeclaredType converter, TypeFilter[] filters) {
 		this.converter = converter;
-		this.constraint = constraint;
+		this.filters = filters;
 	}
 }

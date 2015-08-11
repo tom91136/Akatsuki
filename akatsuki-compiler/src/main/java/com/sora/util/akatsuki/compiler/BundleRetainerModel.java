@@ -9,6 +9,7 @@ import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TypeConstraint;
+import com.sora.util.akatsuki.TypeFilter;
 import com.sora.util.akatsuki.compiler.BundleContext.SimpleBundleContext;
 import com.sora.util.akatsuki.compiler.InvocationSpec.InvocationType;
 import com.sora.util.akatsuki.compiler.transformations.ArrayTransformation;
@@ -261,7 +262,7 @@ public class BundleRetainerModel {
 
 			if (strategy == null) {
 				final DeclaredType converterType = models.stream()
-						.filter(m -> testTypeConstraint(field.refinedMirror(), m.constraint))
+						.filter(m -> testTypeConstraint(field.refinedMirror(), m.filters))
 						.findFirst().map(m -> m.converter).orElse(null);
 				if (converterType != null)
 					strategy = new ConverterTransformation(context, converterType);
@@ -313,66 +314,86 @@ public class BundleRetainerModel {
 				List<TransformationTemplate> templates, Field<?> field, Execution execution) {
 			return templates.stream().filter(t -> t.execution() == execution)
 					.filter(template -> testTypeConstraint(field.refinedMirror(),
-							template.constraints()))
+							template.filters()))
 					.findFirst().map(t -> new TemplateTransformation(context, t)).orElse(null);
 		}
 
-		private boolean testTypeConstraint(TypeMirror mirror, TypeConstraint... constraints) {
-			return Arrays.stream(constraints).anyMatch(constraint -> {
-				final List<DeclaredType> constraintType = context.utils()
-						.getClassArrayFromAnnotationMethod(constraint::types);
+		private boolean testTypeConstraint(TypeMirror mirror, TypeFilter... filters) {
+			return Arrays.stream(filters).anyMatch(filter -> {
+				final List<? extends TypeMirror> arguments;
+				arguments = mirror instanceof DeclaredType
+						? ((DeclaredType) mirror).getTypeArguments() : Collections.emptyList();
+				final TypeConstraint[] parameters = filter.parameters();
 
-				for (DeclaredType type : constraintType) {
-					// annotation types are handled differently
-					if (context.utils().isAssignable(type, context.utils().of(Annotation.class),
-							true)) {
+				// if argument count don't match, short circuit
+				if (arguments.size() != parameters.length) {
+					return false;
+				}
 
-						// TODO how do we get the element of PrimitiveType? this
-						// seems wrong...
-						final Element element = (mirror instanceof PrimitiveType)
-								? context.types().boxedClass((PrimitiveType) mirror)
-								: context.types().asElement(mirror);
+				// check our raw type
+				if (!testTypeConstraint(mirror, filter.type()))
+					return false;
 
-						System.out.println("ele " + element + " mm -> " + mirror);
-						List<? extends AnnotationMirror> annotationMirrors;
-						// bounds have different meanings for annotations as
-						// they don't have inheritance
-						switch (constraint.bound()) {
-						case EXACTLY:
-							annotationMirrors = element.getAnnotationMirrors();
-							break;
-						default:
-							annotationMirrors = context.elements().getAllAnnotationMirrors(element);
-							break;
-						}
-						if (annotationMirrors.stream().anyMatch(
-								m -> context.utils().isSameType(m.getAnnotationType(), type, true)))
-							return true;
-					}
-
-					switch (constraint.bound()) {
-					case EXACTLY:
-						if (context.utils().isSameType(type, mirror, true))
-							return true;
-						break;
-					case EXTENDS:
-						if (context.utils().isAssignable(type, mirror, true))
-							return true;
-						break;
-					case SUPER:
-						// traverse class hierarchy
-						TypeMirror superType = mirror;
-						while (superType != null && superType.getKind() != TypeKind.NONE) {
-							if (context.utils().isSameType(type, superType, true))
-								return true;
-							superType = ((TypeElement) context.types().asElement(superType))
-									.getSuperclass();
-						}
-						break;
+				for (int i = 0; i < arguments.size(); i++) {
+					TypeMirror m = arguments.get(i);
+					if (!testTypeConstraint(m, parameters[i])) {
+						return false;
 					}
 				}
-				return false;
+
+				return true;
 			});
+		}
+
+		private boolean testTypeConstraint(TypeMirror mirror, TypeConstraint constraint) {
+			final DeclaredType type = context.utils()
+					.getClassFromAnnotationMethod(constraint::type);
+			// annotation types are handled differently
+			if (context.utils().isAssignable(type, context.utils().of(Annotation.class), true)) {
+				// TODO how do we get the element of PrimitiveType? this
+				// seems wrong...
+				final Element element = (mirror instanceof PrimitiveType)
+						? context.types().boxedClass((PrimitiveType) mirror)
+						: context.types().asElement(mirror);
+
+				System.out.println("ele " + element + " mm -> " + mirror);
+				List<? extends AnnotationMirror> annotationMirrors;
+				// bounds have different meanings for annotations as
+				// they don't have inheritance
+				switch (constraint.bound()) {
+				case EXACTLY:
+					annotationMirrors = element.getAnnotationMirrors();
+					break;
+				default:
+					annotationMirrors = context.elements().getAllAnnotationMirrors(element);
+					break;
+				}
+				if (annotationMirrors.stream().anyMatch(
+						m -> context.utils().isSameType(m.getAnnotationType(), type, true)))
+					return true;
+			}
+
+			switch (constraint.bound()) {
+			case EXACTLY:
+				if (context.utils().isSameType(type, mirror, true))
+					return true;
+				break;
+			case EXTENDS:
+				if (context.utils().isAssignable(type, mirror, true))
+					return true;
+				break;
+			case SUPER:
+				// traverse class hierarchy
+				TypeMirror superType = mirror;
+				while (superType != null && superType.getKind() != TypeKind.NONE) {
+					if (context.utils().isSameType(type, superType, true))
+						return true;
+					superType = ((TypeElement) context.types().asElement(superType))
+							.getSuperclass();
+				}
+				break;
+			}
+			return false;
 		}
 
 	}

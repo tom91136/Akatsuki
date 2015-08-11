@@ -3,6 +3,7 @@ package com.sora.util.akatsuki.parceler;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TypeConstraint;
+import com.sora.util.akatsuki.TypeFilter;
 
 import org.parceler.Parcel;
 
@@ -13,7 +14,7 @@ import org.parceler.Parcel;
 @TransformationTemplate(
 		save = "{{bundle}}.putParcelable(\"{{keyName}}\", org.parceler.Parcels.wrap({{fieldName}}))",
 		restore = "{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable(\"{{keyName}}\"))",
-		constraints = @TypeConstraint(types = {Parcel.class}),
+		filters = @TypeFilter(type=@TypeConstraint(type = Parcel.class)),
 		execution = Execution.BEFORE)
 //@formatter:on
 public class ParcelerSupport {

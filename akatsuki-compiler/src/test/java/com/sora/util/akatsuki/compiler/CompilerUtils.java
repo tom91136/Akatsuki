@@ -26,7 +26,7 @@ import static com.google.common.base.Charsets.UTF_8;
 public class CompilerUtils {
 
 	static Result compile(ClassLoader loader, Iterable<Processor> processors,
-	                      JavaFileObject... objects) {
+			JavaFileObject... objects) {
 		// we need all this because we got a annotation processor, the generated
 		// class has to go into memory too
 		final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -38,9 +38,8 @@ public class CompilerUtils {
 				ImmutableSet.of(), Arrays.asList(objects));
 		task.setProcessors(processors);
 		if (!task.call()) {
-			throw new RuntimeException(
-					"Compilation failed:\n" + printVertically(diagnosticCollector.getDiagnostics())
-							+ " Input sources:\n" + printAllSources(fileManager.getOutputFiles()));
+			throw new RuntimeException("Compilation failed:\n"
+					+ printVertically(diagnosticCollector.getDiagnostics()));
 		}
 		return new Result(fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT),
 				fileManager.getOutputFiles());

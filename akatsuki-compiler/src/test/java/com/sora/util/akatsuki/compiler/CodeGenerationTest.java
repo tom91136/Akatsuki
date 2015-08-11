@@ -52,6 +52,7 @@ import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TypeConstraint;
 import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.sora.util.akatsuki.TypeConverter;
+import com.sora.util.akatsuki.TypeFilter;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.AccessorKeyPair;
 import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.FieldFilter;
 import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
@@ -367,18 +368,20 @@ public class CodeGenerationTest extends TestBase {
 		final ArrayList<JavaSource> sources = new ArrayList<>();
 		if (registered) {
 			fieldBuilder.addAnnotation(Retained.class);
-			final AnnotationSpec declaredConverterAnnotation = AnnotationSpec
-					.builder(DeclaredConverter.class)
-					.addMember("value", "$L",
-							AnnotationSpec.builder(TypeConstraint.class)
-									.addMember("types", "$T.class", StringObject.class).build())
-					.build();
+			final AnnotationSpec constraintSpec = AnnotationSpec.builder(TypeConstraint.class)
+					.addMember("type", "$T.class", StringObject.class).build();
+
+			final AnnotationSpec.Builder filterSpec = AnnotationSpec.builder(TypeFilter.class)
+					.addMember("type", "$L", constraintSpec);
+
+			final AnnotationSpec converterSpec = AnnotationSpec.builder(DeclaredConverter.class)
+					.addMember("value", "$L", filterSpec.build()).build();
 
 			final String converterName = generateClassName();
 			JavaSource converter = new JavaSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
 					.builderTransformer(
 							(builder, source) -> builder.superclass(StringObjectTypeConverter.class)
-									.addAnnotation(declaredConverterAnnotation));
+									.addAnnotation(converterSpec));
 			sources.add(converter);
 
 		} else {
@@ -430,27 +433,35 @@ public class CodeGenerationTest extends TestBase {
 	private void testTransformationTemplate(Bound bound, Class<?> staticClass,
 			Class<?>... constraints) {
 		final String objectFqcn = staticClass.getCanonicalName();
-		final AnnotationSpec constraintsSpec = AnnotationSpec.builder(TypeConstraint.class)
-				.addMember("types", "{$L}",
-						Arrays.stream(constraints).map(c -> c.getCanonicalName() + "" + ".class")
-								.collect(Collectors.joining(",")))
-				.addMember("bound", "$T.$L", Bound.class, bound).build();
 
-		final AnnotationSpec annotationSpec = AnnotationSpec.builder(TransformationTemplate.class)
+		final AnnotationSpec.Builder annotationSpec = AnnotationSpec
+				.builder(TransformationTemplate.class)
 				.addMember("save", "$S",
 						"{{bundle}}.putString(\"{{keyName}}\", " + objectFqcn + ".wrap"
 								+ "({{fieldName}}))")
 				.addMember("restore", "$S",
 						"{{fieldName}} = " + objectFqcn + ".unwrap({{bundle}}.getString"
 								+ "(\"{{keyName}}\"))")
-				.addMember("constraints", "$L", constraintsSpec)
-				.addMember("execution", "$T.$L", Execution.class, Execution.BEFORE).build();
+				.addMember("execution", "$T.$L", Execution.class, Execution.BEFORE);
+
+		for (Class<?> constraint : constraints) {
+			final AnnotationSpec constraintsSpec = AnnotationSpec.builder(TypeConstraint.class)
+					.addMember("type", "$T.class", constraint)
+					.addMember("bound", "$T.$L", Bound.class, bound).build();
+
+			AnnotationSpec.Builder filterSpec = AnnotationSpec.builder(TypeFilter.class);
+			filterSpec.addMember("type", "$L", constraintsSpec);
+
+			annotationSpec.addMember("filters", "$L", filterSpec.build());
+
+		}
 
 		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
 				Modifier.PUBLIC).fields(
 						new RetainedField(StringObject.class, "a", "new " + objectFqcn + "(\"A\")")
 								.createFieldSpec());
-		testClass.builderTransformer((builder, source) -> builder.addAnnotation(annotationSpec));
+		testClass.builderTransformer(
+				(builder, source) -> builder.addAnnotation(annotationSpec.build()));
 
 		final TestEnvironment environment = new TestEnvironment(this, testClass);
 
@@ -562,9 +573,13 @@ public class CodeGenerationTest extends TestBase {
 
 		public TestEnvironment(TestBase base, List<JavaSource> sources) {
 			this.sources = sources;
-			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
-					base.processors(), sources.stream().map(JavaSource::generateFileObject)
-							.toArray(JavaFileObject[]::new));
+			try {
+				result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
+						base.processors(), sources.stream().map(JavaSource::generateFileObject)
+								.toArray(JavaFileObject[]::new));
+			} catch (Exception e) {
+				throw new RuntimeException("Compilation was unsuccessful." + printAllSources(), e);
+			}
 			final Class<?> testClass;
 			try {
 				final String fqcn = sources.get(0).fqcn();
@@ -631,7 +646,11 @@ public class CodeGenerationTest extends TestBase {
 				}
 				builder.append("\n===================\n");
 			}
-			builder.append(result.printGeneratedSources());
+			if (result == null) {
+				builder.append("No sources generated.");
+			} else {
+				builder.append(result.printGeneratedSources());
+			}
 			return builder.toString();
 		}
 

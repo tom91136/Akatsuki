@@ -59,11 +59,11 @@ public @interface TransformationTemplate {
 	String restore();
 
 	/**
-	 * Defines how types are matched, see {@link TypeConstraint} for more
+	 * Defines how types are matched, see {@link TypeFilter} for more
 	 * details on how to use
 	 *
 	 */
-	TypeConstraint[]constraints();
+	TypeFilter[]filters();
 
 	/**
 	 * Execution time of the custom template. Setting this to "BEFORE" while

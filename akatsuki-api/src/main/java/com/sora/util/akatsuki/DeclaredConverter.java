@@ -29,10 +29,10 @@ import java.lang.annotation.Target;
 public @interface DeclaredConverter {
 
 	/**
-	 * Defines how types are matched, see {@link TypeConstraint} for more
+	 * Defines how types are matched, see {@link TypeFilter} for more
 	 * details on how to use
-	 * 
+	 *
 	 */
-	TypeConstraint[]value();
+	TypeFilter[]value();
 
 }

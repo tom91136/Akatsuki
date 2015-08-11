@@ -22,10 +22,10 @@ package com.sora.util.akatsuki;
 public @interface TypeConstraint {
 
 	/**
-	 * Matching classes for this constraint. Annotated class are also supported,
+	 * Matching class for this constraint. Annotated class are also supported,
 	 * simply supply the annotation class instead of the type.
 	 */
-	Class<?>[]types();
+	Class<?> type();
 
 	/**
 	 * Bounds for class type matching. (When used on an annotation class, the
