@@ -1,7 +1,5 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
-import com.sora.util.akatsuki.compiler.ProcessorContext;
-
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
@@ -19,12 +17,12 @@ public class PrimitiveTransformation extends SuffixedTransformation<TypeMirror> 
 
 	private final Type type;
 
-	public PrimitiveTransformation(ProcessorContext context, Type type) {
+	public PrimitiveTransformation(TransformationContext context, Type type) {
 		super(context);
 		this.type = type;
 	}
 
-	public PrimitiveTransformation(ProcessorContext context) {
+	public PrimitiveTransformation(TransformationContext context) {
 		super(context);
 		this.type = Type.UNBOXED;
 	}

@@ -18,7 +18,6 @@ package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.compiler.InvocationSpec.InvocationType;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 
 import java.util.Map;
 
@@ -29,7 +28,7 @@ import javax.lang.model.type.TypeMirror;
 public class ConverterTransformation extends FieldTransformation<TypeMirror> {
 	private final TypeElement converterElement;
 
-	public ConverterTransformation(ProcessorContext context, DeclaredType converterType) {
+	public ConverterTransformation(TransformationContext context, DeclaredType converterType) {
 		super(context);
 		this.converterElement = (TypeElement) converterType.asElement();
 	}

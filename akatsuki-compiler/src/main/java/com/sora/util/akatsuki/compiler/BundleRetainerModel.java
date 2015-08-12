@@ -22,6 +22,7 @@ import com.sora.util.akatsuki.compiler.transformations.NestedTransformation;
 import com.sora.util.akatsuki.compiler.transformations.ObjectTransformation;
 import com.sora.util.akatsuki.compiler.transformations.PrimitiveTransformation;
 import com.sora.util.akatsuki.compiler.transformations.TemplateTransformation;
+import com.sora.util.akatsuki.compiler.transformations.TransformationContext;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.processing.Filer;
+import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -57,6 +59,8 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 
 /**
@@ -239,6 +243,32 @@ public class BundleRetainerModel {
 		private final List<DeclaredConverterModel> models;
 		private final Map<String, BundleRetainerModel> modelMap;
 		private final ProcessorContext context;
+		TransformationContext transformationContext = new TransformationContext() {
+			@Override
+			public Types types() {
+				return context.types();
+			}
+
+			@Override
+			public Elements elements() {
+				return context.elements();
+			}
+
+			@Override
+			public ProcessorUtils utils() {
+				return context.utils();
+			}
+
+			@Override
+			public Messager messager() {
+				return context.messager();
+			}
+
+			@Override
+			public FieldTransformation<? extends TypeMirror> resolve(Field<?> field) {
+				return findTransformationStrategy(field);
+			}
+		};
 
 		public TypeResolvingContext(List<TransformationTemplate> templates,
 				List<DeclaredConverterModel> models, Map<String, BundleRetainerModel> modelMap,
@@ -255,9 +285,9 @@ public class BundleRetainerModel {
 
 			// @Retained defaults to a dummy converter, we don't want that
 			final TypeMirror dummyConverter = context.utils().of(DummyTypeConverter.class);
-			if (field.typeConverter != null
-					&& !context.utils().isSameType(field.typeConverter, dummyConverter, true)) {
-				strategy = new ConverterTransformation(context, field.typeConverter);
+			if (field.typeConverter != null && !transformationContext.utils()
+					.isSameType(field.typeConverter, dummyConverter, true)) {
+				strategy = new ConverterTransformation(transformationContext, field.typeConverter);
 			}
 
 			if (strategy == null) {
@@ -265,11 +295,12 @@ public class BundleRetainerModel {
 						.filter(m -> testTypeConstraint(field.refinedMirror(), m.filters))
 						.findFirst().map(m -> m.converter).orElse(null);
 				if (converterType != null)
-					strategy = new ConverterTransformation(context, converterType);
+					strategy = new ConverterTransformation(transformationContext, converterType);
 			}
 
 			if (strategy == null)
-				strategy = findTransformationTemplates(context, templates, field, Execution.BEFORE);
+				strategy = findTransformationTemplates(transformationContext, templates, field,
+						Execution.BEFORE);
 
 			if (strategy == null) {
 				final TypeMirror mirror = field.refinedMirror();
@@ -277,26 +308,25 @@ public class BundleRetainerModel {
 				// condition
 				// into
 				// every strategy
-				if (context.utils().isPrimitive(mirror)) {
-					strategy = new PrimitiveTransformation(context);
-				} else if (context.utils().isArray(mirror)) {
-					strategy = new ArrayTransformation(context);
+				if (transformationContext.utils().isPrimitive(mirror)) {
+					strategy = new PrimitiveTransformation(transformationContext);
+				} else if (transformationContext.utils().isArray(mirror)) {
+					strategy = new ArrayTransformation(transformationContext);
 				} else if (modelMap.containsKey(mirror.toString())) {
 					// this field is a type that contains the @Retained
 					// annotation
-					strategy = new NestedTransformation(context);
-				} else if (context.utils().isAssignable(mirror,
-						context.utils().of(Collection.class), true)) {
-					strategy = new CollectionTransformation(context);
-				} else
-					if (context.utils().isAssignable(mirror, context.utils().of(Map.class), true)) {
+					strategy = new NestedTransformation(transformationContext);
+				} else if (transformationContext.utils().isAssignable(mirror,
+						transformationContext.utils().of(Collection.class), true)) {
+					strategy = new CollectionTransformation(transformationContext);
+				} else if (transformationContext.utils().isAssignable(mirror,
+						transformationContext.utils().of(Map.class), true)) {
 					// TODO: 7/24/2015 impl
-				} else if (context.utils().isObject(mirror)) {
-					strategy = new ObjectTransformation(context);
+				} else if (transformationContext.utils().isObject(mirror)) {
+					strategy = new ObjectTransformation(transformationContext);
 				} else if (mirror.getKind().equals(TypeKind.TYPEVAR)) {
 					// we got a generic type of some bounds
-					strategy = new GenericTransformation(context, field,
-							this::findTransformationStrategy);
+					strategy = new GenericTransformation(transformationContext, field);
 				}
 			}
 
@@ -315,7 +345,8 @@ public class BundleRetainerModel {
 			return templates.stream().filter(t -> t.execution() == execution)
 					.filter(template -> testTypeConstraint(field.refinedMirror(),
 							template.filters()))
-					.findFirst().map(t -> new TemplateTransformation(context, t)).orElse(null);
+					.findFirst().map(t -> new TemplateTransformation(transformationContext, t))
+					.orElse(null);
 		}
 
 		private boolean testTypeConstraint(TypeMirror mirror, TypeFilter... filters) {

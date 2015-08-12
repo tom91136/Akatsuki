@@ -2,7 +2,6 @@ package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.compiler.InvocationSpec.InvocationType;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 
 import javax.lang.model.type.TypeMirror;
 
@@ -13,7 +12,7 @@ public class TemplateTransformation extends FieldTransformation<TypeMirror> {
 
 	public final TransformationTemplate template;
 
-	public TemplateTransformation(ProcessorContext context, TransformationTemplate template) {
+	public TemplateTransformation(TransformationContext context, TransformationTemplate template) {
 		super(context);
 		this.template = template;
 	}

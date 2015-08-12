@@ -2,7 +2,6 @@ package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.compiler.AndroidTypes;
 import com.sora.util.akatsuki.compiler.BundleRetainerModel.Field;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 import com.sora.util.akatsuki.compiler.transformations.PrimitiveTransformation.Type;
 
 import java.util.ArrayList;
@@ -20,7 +19,7 @@ public class CollectionTransformation extends FieldTransformation<DeclaredType> 
 	static final AndroidTypes[] SUPPORTED_ARRAY_LIST_TYPES = { AndroidTypes.CharSequence,
 			AndroidTypes.String };
 
-	public CollectionTransformation(ProcessorContext context) {
+	public CollectionTransformation(TransformationContext context) {
 		super(context);
 	}
 
@@ -45,6 +44,26 @@ public class CollectionTransformation extends FieldTransformation<DeclaredType> 
 			}
 		} else {
 
+//			final List<? extends TypeMirror> mirror = context.field.refinedMirror()
+//					.getTypeArguments();
+//			if (mirror.size() != 1) {
+//				// collections only have one generic parameter
+//				throw new UnknownTypeException(context.field);
+//			}
+//
+//			final TypeMirror typeMirror = mirror.get(0);
+//
+//			final Invocation invocation = cascade(resolve(context.field.refine(typeMirror)),
+//					context, typeMirror);
+//
+//			return new Invocation() {
+//				@Override
+//				public String create() {
+//					return CodeBlock.builder()
+//							.beginControlFlow("for ()", from, to)
+//							.addStatement(invocation.create()).endControlFlow().build().toString();
+//				}
+//			};
 		}
 
 		return null;

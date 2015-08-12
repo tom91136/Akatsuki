@@ -1,7 +1,6 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.compiler.AndroidTypes;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 
 import java.util.Arrays;
 
@@ -12,7 +11,7 @@ import javax.lang.model.type.DeclaredType;
  */
 public class ObjectTransformation extends SuffixedTransformation<DeclaredType> {
 
-	public ObjectTransformation(ProcessorContext context) {
+	public ObjectTransformation(TransformationContext context) {
 		super(context);
 	}
 

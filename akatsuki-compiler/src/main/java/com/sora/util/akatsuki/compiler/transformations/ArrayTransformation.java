@@ -1,7 +1,6 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.compiler.AndroidTypes;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -17,7 +16,7 @@ public class ArrayTransformation extends FieldTransformation<ArrayType> {
 	static final AndroidTypes[] SUPPORTED_ARRAY_TYPES = { AndroidTypes.Parcelable,
 			AndroidTypes.CharSequence, AndroidTypes.String };
 
-	public ArrayTransformation(ProcessorContext context) {
+	public ArrayTransformation(TransformationContext context) {
 		super(context);
 	}
 

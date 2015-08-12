@@ -18,11 +18,11 @@ import javax.lang.model.util.Types;
 /**
  * Project: Akatsuki Created by Tom on 7/23/2015.
  */
-public abstract class FieldTransformation<T extends TypeMirror> implements ProcessorContext {
+public abstract class FieldTransformation<T extends TypeMirror> implements TransformationContext {
 
-	private final ProcessorContext context;
+	private final TransformationContext context;
 
-	public FieldTransformation(ProcessorContext context) {
+	public FieldTransformation(TransformationContext context) {
 		this.context = context;
 	}
 
@@ -71,6 +71,11 @@ public abstract class FieldTransformation<T extends TypeMirror> implements Proce
 	@Override
 	public Messager messager() {
 		return context.messager();
+	}
+
+	@Override
+	public FieldTransformation<? extends TypeMirror> resolve(Field<?> field) {
+		return context.resolve(field);
 	}
 
 	public interface Invocation {

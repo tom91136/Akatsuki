@@ -1,7 +1,5 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
-import com.sora.util.akatsuki.compiler.ProcessorContext;
-
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -13,7 +11,7 @@ public abstract class SuffixedTransformation<T extends TypeMirror> extends Field
 	protected TypeMirror methodMirror;
 	protected boolean forceCast;
 
-	public SuffixedTransformation(ProcessorContext context) {
+	public SuffixedTransformation(TransformationContext context) {
 		super(context);
 	}
 

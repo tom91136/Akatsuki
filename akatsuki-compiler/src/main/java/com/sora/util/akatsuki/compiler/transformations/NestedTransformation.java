@@ -2,7 +2,6 @@ package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.compiler.InvocationSpec.InvocationType;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
 
 import java.util.Map;
 
@@ -10,7 +9,7 @@ import javax.lang.model.type.TypeMirror;
 
 public class NestedTransformation extends FieldTransformation<TypeMirror> {
 
-	public NestedTransformation(ProcessorContext context) {
+	public NestedTransformation(TransformationContext context) {
 		super(context);
 	}
 

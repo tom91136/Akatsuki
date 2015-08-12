@@ -1,9 +1,6 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.compiler.BundleRetainerModel.Field;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
-
-import java.util.function.Function;
 
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.IntersectionType;
@@ -15,22 +12,21 @@ public class GenericTransformation extends FieldTransformation<TypeMirror> {
 	private TypeMirror resolvedMirror;
 	private FieldTransformation<? extends TypeMirror> transformation;
 
-	public GenericTransformation(ProcessorContext context, Field<?> field,
-			Function<Field<?>, FieldTransformation<? extends TypeMirror>> transformationFinder) {
+	public GenericTransformation(TransformationContext context, Field<?> field) {
 		super(context);
 		TypeVariable typeVariable = (TypeVariable) field.refinedMirror();
 		final TypeMirror upperBound = typeVariable.getUpperBound();
 		if (upperBound instanceof DeclaredType) {
 			// we have a concrete type, good
 			resolvedMirror = upperBound;
-			transformation = transformationFinder.apply(field.refine(resolvedMirror));
+			transformation = resolve(field.refine(resolvedMirror));
 		} else if (upperBound instanceof IntersectionType) {
 			for (TypeMirror bound : ((IntersectionType) upperBound).getBounds()) {
 				// as long as the first bound matches anything, we use it
 				// TODO some bounds should have priority such as Parcelable and
 				// serializable. but how do we decide?
-				final FieldTransformation<? extends TypeMirror> found = transformationFinder
-						.apply(field.refine(resolvedMirror));
+				final FieldTransformation<? extends TypeMirror> found = resolve(
+						field.refine(resolvedMirror));
 				if (found != null) {
 					// we can probably do the following analysis to make this
 					// better:
@@ -55,7 +51,8 @@ public class GenericTransformation extends FieldTransformation<TypeMirror> {
 		if (resolvedMirror == null || transformation == null)
 			throw new UnknownTypeException(context.field);
 		if (transformation instanceof SuffixedTransformation) {
-			transformation = ((SuffixedTransformation<?>) transformation).withForcedCast(resolvedMirror);
+			transformation = ((SuffixedTransformation<?>) transformation)
+					.withForcedCast(resolvedMirror);
 		}
 		return cascade(transformation, context, resolvedMirror);
 	}
