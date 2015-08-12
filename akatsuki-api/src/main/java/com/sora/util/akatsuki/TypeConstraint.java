@@ -16,16 +16,23 @@
 
 package com.sora.util.akatsuki;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
  * Defines a constraint for type matching
  */
+@Target(ElementType.ANNOTATION_TYPE)
+@Retention(RetentionPolicy.CLASS)
 public @interface TypeConstraint {
 
 	/**
 	 * Matching class for this constraint. Annotated class are also supported,
 	 * simply supply the annotation class instead of the type.
 	 */
-	Class<?> type();
+	Class<?>type();
 
 	/**
 	 * Bounds for class type matching. (When used on an annotation class, the
