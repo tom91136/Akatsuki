@@ -4,7 +4,6 @@ Akatsuki
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat)](https://android-arsenal.com/details/1/2230)
 [![Build Status](https://travis-ci.org/tom91136/Akatsuki.svg)](https://travis-ci.org/tom91136/Akatsuki)
 
-**This library is complete and functional but I would like to make sure everything works so no artifacts yet!**
 
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
@@ -269,7 +268,7 @@ To let Akatsuki know about the converter, simply use:
 ```
 or if you have many fields, register the converter so that `Foo` automatically uses the converter:
 ```java
-@DeclaredConverter(@TypeConstraint(types = Foo.class))
+@DeclaredConverter(@TypeFilter(type=@TypeConstraint(type = Foo.class)))
 public class BetterFooConverter extends MultiKeyTypeConverter<Foo> {
 	// ...
 }
@@ -294,7 +293,7 @@ It's up to you to decide whether you want a `TypeConverter` or annotate fields w
 @TransformationTemplate(
 		save = "{{bundle}}.putParcelable(\"{{fieldName}}\", org.parceler.Parcels.wrap({{fieldName}}))",
 		restore = "{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable(\"{{fieldName}}\"))",
-		types = {Parcel.class},
+		filters = @TypeFilter(type=@TypeConstraint(type = Parcel.class)),
 		execution = Execution.BEFORE)
 public class ParcelerSupport {
     // dummy class, any class in the project will work
@@ -322,6 +321,7 @@ Optional parceler support:
 ```groovy
  compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
 ```
+You can download the sample app [here](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.1/) if you want to test it out (nothing surprising though, just a very simple demo with a `Fragment` + `NumberPicker`/`EditText`).
 
 
 License
