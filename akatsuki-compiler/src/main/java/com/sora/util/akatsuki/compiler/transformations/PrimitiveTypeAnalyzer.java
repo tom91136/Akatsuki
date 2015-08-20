@@ -1,34 +1,34 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis;
+
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 
 import static com.sora.util.akatsuki.compiler.Utils.toCapitalCase;
 
-/**
- * Project: Akatsuki Created by Tom on 7/24/2015.
- */
-public class PrimitiveTransformation extends SuffixedTransformation<TypeMirror> {
+public class PrimitiveTypeAnalyzer
+		extends CascadingTypeAnalyzer<PrimitiveTypeAnalyzer, TypeMirror, DefaultAnalysis> {
 
-	enum Type {
+	public enum Type {
 		BOXED, UNBOXED, FOLLOW
 	}
 
 	private final Type type;
 
-	public PrimitiveTransformation(TransformationContext context, Type type) {
+	public PrimitiveTypeAnalyzer(TransformationContext context, Type type) {
 		super(context);
-		this.type = type;
-	}
-
-	public PrimitiveTransformation(TransformationContext context) {
-		super(context);
-		this.type = Type.UNBOXED;
+		this.type = type == null ? Type.UNBOXED : type;
 	}
 
 	@Override
-	public Invocation createInvocation(InvocationContext<TypeMirror> context)
+	protected PrimitiveTypeAnalyzer createInstance(TransformationContext context) {
+		return new PrimitiveTypeAnalyzer(context, type);
+	}
+
+	@Override
+	public DefaultAnalysis createAnalysis(InvocationContext<TypeMirror> context)
 			throws UnknownTypeException {
 		// boxed primitives have different names (at least for int)
 		CharSequence typeName;
@@ -44,17 +44,7 @@ public class PrimitiveTransformation extends SuffixedTransformation<TypeMirror> 
 					? types().boxedClass((PrimitiveType) refinedMirror).getSimpleName()
 					: toCapitalCase(refinedMirror.getKind().name());
 		}
-		String methodName = (suffix != null) ? (typeName.toString() + suffix.toString())
-				: typeName.toString();
-
-		if (methodMirror == null) {
-			// no casting needed
-			return MustacheTemplateSupplier.withMethodName(context.bundleContext, this,
-					context.field, methodName, context.type);
-		} else {
-			return MustacheTemplateSupplier.withMethodNameAndCast(context.bundleContext, this,
-					context.field, methodMirror, methodName, context.type);
-		}
-
+		String methodName = (suffix != null) ? (typeName.toString() + suffix) : typeName.toString();
+		return DefaultAnalysis.of(this, methodName, context);
 	}
 }

@@ -5,6 +5,7 @@ import com.google.common.base.Objects;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TypeConverter;
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -55,7 +56,13 @@ public class Field {
 	}
 
 	public TypeName typeName() {
-		return generic() ? ParameterizedTypeName.get(clazz, parameters) : TypeName.get(clazz);
+		if (generic()) {
+			Class<?> rawType = clazz.isArray() ? clazz.getComponentType() : clazz;
+			final ParameterizedTypeName typeName = ParameterizedTypeName.get(rawType, parameters);
+			return clazz.isArray() ? ArrayTypeName.of(typeName) : typeName;
+		} else {
+			return TypeName.get(clazz);
+		}
 	}
 
 	protected Builder fieldSpecBuilder() {

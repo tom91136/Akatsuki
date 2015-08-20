@@ -8,6 +8,7 @@ import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TypeConverter;
 import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
+import com.sora.util.akatsuki.compiler.Utils.Defaults;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -40,9 +41,13 @@ import javax.tools.Diagnostic.Kind;
 		"com.sora.util.akatsuki.RetainConfig" })
 public class AkatsukiProcessor extends AbstractProcessor implements ProcessorContext {
 
-	private static final boolean DEBUG = false;
+	private static RetainConfig config;
 
 	private ProcessorUtils utils;
+
+	public static RetainConfig retainConfig() {
+		return config;
+	}
 
 	@Override
 	public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -55,9 +60,6 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 		// NOTE: process gets called multiple times if any other annotation
 		// processor exists
-		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
-		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
-		final FqcnModelMap map = BundleRetainerModel.findRetainedFields(this, roundEnv);
 
 		final List<RetainConfig> configs = findAnnotations(
 				roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
@@ -66,6 +68,11 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 					"Multiple @RetainConfig found, you can only have one config. Found:"
 							+ configs.toString());
 		}
+		config = configs.isEmpty() ? Defaults.of(RetainConfig.class) : configs.get(0);
+
+		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
+		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
+		final FqcnModelMap map = BundleRetainerModel.findRetainedFields(this, roundEnv);
 
 		if (map == null) {
 			messager().printMessage(Kind.ERROR, "verification failed");
@@ -90,13 +97,10 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 			}
 		});
 
-		final Optimisation optimisation = configs.isEmpty() ? Optimisation.ALL
-				: configs.get(0).optimisation();
-
-		if (optimisation != Optimisation.NONE) {
+		if (retainConfig().optimisation() != Optimisation.NONE) {
 			try {
 				new RetainerMappingModel(this).writeSourceToFile(processingEnv.getFiler(), map,
-						roundEnv.getRootElements(), optimisation);
+						roundEnv.getRootElements(), retainConfig().optimisation());
 			} catch (IOException e) {
 				messager().printMessage(Kind.ERROR, "An error occurred while writing cache class, "
 						+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
@@ -135,7 +139,7 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
 		for (Element element : elements) {
-			if (!utils().isAssignable(element.asType(),utils().of(TypeConverter.class), true)) {
+			if (!utils().isAssignable(element.asType(), utils().of(TypeConverter.class), true)) {
 				messager().printMessage(Kind.ERROR,
 						"@DeclaredConverter can only be used on types that implement TypeConverter",
 						element);

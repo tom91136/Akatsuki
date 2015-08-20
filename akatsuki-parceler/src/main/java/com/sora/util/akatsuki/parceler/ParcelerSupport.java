@@ -12,8 +12,8 @@ import org.parceler.Parcel;
  */
 //@formatter:off
 @TransformationTemplate(
-		save = "{{bundle}}.putParcelable(\"{{keyName}}\", org.parceler.Parcels.wrap({{fieldName}}))",
-		restore = "{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable(\"{{keyName}}\"))",
+		save = "{{bundle}}.putParcelable({{keyName}}, org.parceler.Parcels.wrap({{fieldName}}))",
+		restore = "{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable({{keyName}}))",
 		filters = @TypeFilter(type=@TypeConstraint(type = Parcel.class)),
 		execution = Execution.BEFORE)
 //@formatter:on

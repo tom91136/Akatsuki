@@ -24,9 +24,6 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-/**
- * Project: Akatsuki Created by tom91136 on 14/07/2015.
- */
 public class ProcessorUtils {
 
 	private final ImmutableSet<TypeMirror> boxedTypes;
@@ -42,7 +39,8 @@ public class ProcessorUtils {
 				of(Double.class));
 	}
 
-	public boolean elementContainsAnyAnnotation(Element element, Class<? extends Annotation> annotation) {
+	public boolean elementContainsAnyAnnotation(Element element,
+			Class<? extends Annotation> annotation) {
 		return element.getEnclosedElements().stream()
 				.anyMatch(e -> e.getAnnotation(annotation) != null);
 	}
@@ -67,9 +65,6 @@ public class ProcessorUtils {
 			return Optional.empty();
 		}
 	}
-
-
-
 
 	public boolean isPrimitive(TypeMirror mirror) {
 		return isBoxedType(mirror) || mirror.getKind().isPrimitive();

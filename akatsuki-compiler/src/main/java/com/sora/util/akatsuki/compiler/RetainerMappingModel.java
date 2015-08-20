@@ -5,6 +5,7 @@ import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.RetainerCache;
 import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -86,7 +87,6 @@ public class RetainerMappingModel extends SourceModel {
 				modelToMapConsumer.accept(findAllTypes(element, modelMap));
 			}
 		}
-
 		typeBuilder.addStaticBlock(builder.build());
 
 		// <T>
@@ -96,7 +96,10 @@ public class RetainerMappingModel extends SourceModel {
 		final ParameterizedTypeName returnType = valueNameFunction.apply(t);
 		MethodSpec methodSpec = MethodSpec.methodBuilder("getCached").returns(returnType)
 				.addParameter(keyValueFunction.get(), "clazz").addModifiers(Modifier.PUBLIC)
-				.addCode("return ($T) CACHE.get(clazz);\n", returnType).addTypeVariable(t).build();
+				.addCode("return ($T) CACHE.get(clazz);\n", returnType).addTypeVariable(t)
+				.addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+						.addMember("value", "$S", "unchecked").build())
+				.build();
 		typeBuilder.addMethod(methodSpec);
 
 		JavaFile.builder(Akatsuki.RETAINER_CACHE_PACKAGE, typeBuilder.build()).build()

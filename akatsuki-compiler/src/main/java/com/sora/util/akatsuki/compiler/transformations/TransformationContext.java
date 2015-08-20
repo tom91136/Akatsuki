@@ -1,12 +1,13 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
-import com.sora.util.akatsuki.compiler.BundleRetainerModel.Field;
 import com.sora.util.akatsuki.compiler.ProcessorContext;
+import com.sora.util.akatsuki.compiler.ProcessorElement;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
 
 import javax.lang.model.type.TypeMirror;
 
 public interface TransformationContext extends ProcessorContext {
 
-	FieldTransformation<? extends TypeMirror> resolve(Field<?> field);
+	CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolve(ProcessorElement<?> element);
 
 }
