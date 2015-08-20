@@ -16,29 +16,10 @@
 
 package com.sora.util.akatsuki.compiler;
 
-import android.accounts.Account;
-import android.app.Activity;
-import android.app.Notification;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Point;
-import android.graphics.PointF;
-import android.location.Location;
-import android.os.Binder;
 import android.os.Bundle;
-import android.os.IBinder;
-import android.os.Parcelable;
-import android.text.Editable;
-import android.text.Spannable;
-import android.text.Spanned;
-import android.util.Size;
-import android.util.SizeF;
-import android.util.SparseArray;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.Primitives;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.DeclaredConverter;
@@ -53,22 +34,17 @@ import com.sora.util.akatsuki.TypeConstraint;
 import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.sora.util.akatsuki.TypeConverter;
 import com.sora.util.akatsuki.TypeFilter;
-import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.AccessorKeyPair;
-import com.sora.util.akatsuki.compiler.CodeGenerationTest.TestEnvironment.FieldFilter;
+import com.sora.util.akatsuki.compiler.CodeGenerationTestBase.TestEnvironment.FieldFilter;
 import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
 import com.sora.util.akatsuki.compiler.Field.RetainedField;
 import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 
 import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.io.Serializable;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -78,13 +54,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -102,248 +76,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-public class CodeGenerationTest extends TestBase {
+public abstract class CodeGenerationTestBase extends TestBase {
 
-	public static class MySerializable implements Serializable {
-
-	}
-
-	public static final Class<?>[] PRIMITIVES = new Class<?>[] { boolean.class, byte.class,
-			short.class, int.class, long.class, char.class, float.class, double.class };
-
-	// these classes are just some random parcelable subclasses chosen
-	// based on intuition :)
-	@SuppressWarnings("unchecked") public static final Class<? extends Parcelable>[] PARCELABLES_CLASSES = new Class[] {
-			Parcelable.class, Account.class, Location.class, Bitmap.class, Intent.class,
-			Notification.class, Point.class, PointF.class };
-
-	public static final Class<?>[] SUPPORTED_ARRAY_CLASSES = { Parcelable[].class,
-			CharSequence[].class, String[].class };
-
-	public static final Class<?>[] SUPPORTED_SIMPLE_CLASSES = { Size.class, SizeF.class,
-			String.class, CharSequence.class, IBinder.class, Bundle.class, Serializable.class };
-
-	public static final ImmutableMap<Class<?>, Class<?>> SUPPORTED_SIMPLE_SUBCLASSES_MAP = ImmutableMap
-			.<Class<?>, Class<?>> builder().put(StringBuilder.class, CharSequence.class)
-			.put(Spannable.class, CharSequence.class).put(Binder.class, IBinder.class)
-			.put(MySerializable.class, Serializable.class).build();
-
-	public static AtomicLong classIdentifier = new AtomicLong();
-
-	public static String generateClassName() {
-		return TEST_CLASS + classIdentifier.incrementAndGet();
-	}
-
-	@Test(expected = RuntimeException.class)
-	public void testUnsupportedType() {
-		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
-				.fields(field(ClassName.get(Activity.class), "badType", Retained.class));
-		new TestEnvironment(this, source);
-	}
-
-	@Test
-	public void testPrimitives() {
-		testSimpleTypes(t -> true, TestEnvironment.CLASS, null, PRIMITIVES);
-	}
-
-	// TODO we got some wicked problem with boxed types, the compiled retainer
-	// throws NPE at lines that doesn't even contain code
-	@Ignore
-	@Test
-	public void testBoxedPrimitives() {
-		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(Primitives::wrap)
-				.toArray(Class<?>[]::new);
-		// boxed primitives cannot be null otherwise we get NPE when unboxing
-		ImmutableMap<Class<?>, String> defaultValueMap = ImmutableMap.<Class<?>, String> builder()
-				.put(Byte.class, "0").put(Short.class, "0").put(Integer.class, "0")
-				.put(Long.class, "0L").put(Float.class, "0.0F").put(Double.class, "0.0D")
-				.put(Character.class, "\'a\'").put(Boolean.class, "false").build();
-		testSimpleTypes(t -> true, TestEnvironment.CLASS, f -> field(f.typeName(), f.name,
-				Retained.class, defaultValueMap.getOrDefault(f.clazz, null)), classes);
-
-	}
-
-	@Test
-	public void testPrimitiveArrays() {
-		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(this::toArrayClass)
-				.toArray(Class<?>[]::new);
-		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null, classes);
-	}
-
-	@Test
-	public void testSupportedSimpleTypes() {
-		testSimpleTypes(n -> true, TestEnvironment.CLASS, null, SUPPORTED_SIMPLE_CLASSES);
-	}
-
-	@Test
-	public void testSubclassOfSupportedTypes() {
-		for (Entry<Class<?>, Class<?>> entry : SUPPORTED_SIMPLE_SUBCLASSES_MAP.entrySet()) {
-			testSimpleTypes(n -> true, (f, t, a) -> t.equals(entry.getValue()), null,
-					entry.getKey());
-		}
-	}
-
-	@Test
-	public void testParcelableAndParcelableSubclassTypes() {
-		// parcelable requires special care because the get accessor returns a
-		// <T> instead of Parcelable
-		for (Class<? extends Parcelable> type : PARCELABLES_CLASSES) {
-			// filter out the method [get|set]Parcelable and work with that only
-			testSimpleTypes(n -> n.endsWith("Parcelable"), TestEnvironment.ALWAYS, null, type);
-		}
-	}
-
-	@Test
-	public void testSupportedArrayTypes() {
-		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null,
-				SUPPORTED_ARRAY_CLASSES);
-	}
-
-	@Test
-	public void testSupportedArraySubclassTypes() {
-		List<Class<?>> classes = new ArrayList<>();
-		classes.addAll(Arrays.asList(PARCELABLES_CLASSES));
-		classes.addAll(Arrays.asList(StringBuilder.class, CharBuffer.class, Spannable.class,
-				Editable.class, Spanned.class));
-
-		for (Class<?> type : classes) {
-			// the type of the accessor must be assignable to the field's
-			testSimpleTypes(n -> n.contains("Array"), TestEnvironment.ASSIGNABLE, null,
-					toArrayClass(type));
-		}
-	}
-
-	@Test
-	public void testSparseArrayParcelableType() {
-		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), TestEnvironment.CLASS,
-				null, SparseArray.class, PARCELABLES_CLASSES);
-	}
-
-	@Test
-	public void testParcelableArrayListType() {
-		// parcelable arraylist also requires special care because the generic
-		// argument of the setter is a wildcard (<? extends Parcelable>)
-		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), TestEnvironment.ALWAYS, null,
-				ArrayList.class, PARCELABLES_CLASSES);
-
-	}
-
-	@Test
-	public void testSupportedArrayListTypes() {
-		testParameterizedTypes(n -> n.contains("ArrayList"),
-				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters), null,
-				ArrayList.class, String.class, Integer.class, CharSequence.class);
-
-	}
-
-	@Test
-	public void testSimpleInheritance() {
-		testInheritance(true, new RetainedField(String.class, "a"),
-				new RetainedField(int.class, "b"));
-	}
-
-	@Test
-	public void testMultiLevelInheritance() {
-		testInheritance(true, new RetainedField(String.class, "a"),
-				new RetainedField(int.class, "b"), new RetainedField(long.class, "c"));
-	}
-
-	@Test
-	public void testMultiLevelInheritanceWithGap() {
-		testInheritance(true, new RetainedField(String.class, "a"), new Field(int.class, "b"),
-				new RetainedField(long.class, "c"));
-	}
-
-	@Test
-	public void testInheritanceWithoutAnnotations() {
-		testInheritance(true, new Field(int.class, "a"), new RetainedField(String.class, "b"));
-	}
-
-	@Test
-	public void testInheritanceWithoutAnnotationsAndCache() {
-		testInheritance(false, new Field(int.class, "a"), new RetainedField(String.class, "b"));
-	}
-
-	@Test
-	public void testFieldHiding() {
-		final RetainedField first = new RetainedField(String.class, "a");
-		final RetainedField second = new RetainedField(int.class, "a");
-		final TestEnvironment environment = testFieldHiding(first, second);
-		environment.invokeSaveAndRestore();
-		final AccessorKeyPair firstKeys = environment.captureTestCaseKeysWithField(first, n -> true,
-				TestEnvironment.CLASS);
-		final AccessorKeyPair secondKeys = environment.captureTestCaseKeysWithField(second,
-				n -> true, TestEnvironment.CLASS);
-		firstKeys.assertSameKeyUsed();
-		secondKeys.assertSameKeyUsed();
-		firstKeys.assertNotTheSame(secondKeys);
-	}
-
-	@Test
-	public void testGenericType() {
-		testGenericType(Parcelable.class);
-	}
-
-	@Test
-	public void testIntersectionType() {
-		testGenericType(Parcelable.class, Serializable.class);
-	}
-
-	@Test
-	public void testTransformationTemplateClassConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class);
-	}
-
-	@Test(expected = RuntimeException.class)
-	public void testTransformationTemplateInvalidClassConstraint() {
-		// should not match anything and fail to compile
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, BaseStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateSubClassConstraint() {
-		testTransformationTemplate(Bound.EXTENDS, StringObject.class, InheritedStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateSuperClassConstraint() {
-		testTransformationTemplate(Bound.SUPER, StringObject.class, BaseStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateAnnotationConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTransformationTemplateInheritedAnnotationConstraint() {
-		testTransformationTemplate(Bound.EXTENDS, InheritedStringObject.class,
-				RandomAnnotation.class);
-		testTransformationTemplate(Bound.SUPER, InheritedStringObject.class,
-				RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTransformationTemplateMixedConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class,
-				RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTypeConverter() {
-		testTypeConverter(false);
-	}
-
-	@Test
-	public void testRegisteredTypeConverter() {
-		testTypeConverter(true);
-	}
+	private static AtomicLong classIdentifier = new AtomicLong();
 
 	@SuppressWarnings("unchecked")
-	private <T> Class<?> toArrayClass(Class<T> clazz) {
+	protected <T> Class<?> toArrayClass(Class<T> clazz) {
 		return Array.newInstance(clazz, 0).getClass();
 	}
 
@@ -361,7 +99,7 @@ public class CodeGenerationTest extends TestBase {
 		}
 	}
 
-	private void testTypeConverter(boolean registered) {
+	protected void testTypeConverter(boolean registered) {
 		final Field retainedField = new Field(StringObject.class, "a",
 				"new " + StringObject.class.getCanonicalName() + "(\"A\")");
 		final Builder fieldBuilder = retainedField.fieldSpecBuilder();
@@ -430,18 +168,18 @@ public class CodeGenerationTest extends TestBase {
 		}
 	}
 
-	private void testTransformationTemplate(Bound bound, Class<?> staticClass,
+	protected void testTransformationTemplate(Bound bound, Class<?> staticClass,
 			Class<?>... constraints) {
 		final String objectFqcn = staticClass.getCanonicalName();
 
 		final AnnotationSpec.Builder annotationSpec = AnnotationSpec
 				.builder(TransformationTemplate.class)
 				.addMember("save", "$S",
-						"{{bundle}}.putString(\"{{keyName}}\", " + objectFqcn + ".wrap"
+						"{{bundle}}.putString({{keyName}}, " + objectFqcn + ".wrap"
 								+ "({{fieldName}}))")
 				.addMember("restore", "$S",
 						"{{fieldName}} = " + objectFqcn + ".unwrap({{bundle}}.getString"
-								+ "(\"{{keyName}}\"))")
+								+ "({{keyName}}))")
 				.addMember("execution", "$T.$L", Execution.class, Execution.BEFORE);
 
 		for (Class<?> constraint : constraints) {
@@ -470,7 +208,7 @@ public class CodeGenerationTest extends TestBase {
 				Collections.singleton(new RetainedField(String.class, "a")));
 	}
 
-	private TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
+	protected TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
 		final JavaSource superClass = new JavaSource(TEST_PACKAGE, generateClassName(),
 				Modifier.PUBLIC).fields(first.createFieldSpec());
 		final JavaSource subclass = new JavaSource(TEST_PACKAGE,
@@ -481,7 +219,7 @@ public class CodeGenerationTest extends TestBase {
 
 	// generates a class for each field, each class extends the previous class;
 	// left most spec argument will be the top most class
-	private TestEnvironment testInheritance(boolean cache, Field first, Field... rest) {
+	protected TestEnvironment testInheritance(boolean cache, Field first, Field... rest) {
 		final List<Field> fields = Lists.asList(first, rest);
 		JavaSource lastClass = null;
 		List<JavaSource> sources = new ArrayList<>();
@@ -508,7 +246,7 @@ public class CodeGenerationTest extends TestBase {
 		return environment;
 	}
 
-	private void testGenericType(Class<?>... input) {
+	protected void testGenericType(Class<?>... input) {
 		// we could make Field support <T> but that's too much effort for this
 		// single use case
 		final TypeVariableName typeVariable = TypeVariableName.get("T", input);
@@ -523,13 +261,13 @@ public class CodeGenerationTest extends TestBase {
 		verify(environment.mockedBundle, times(1)).getParcelable(eq("t"));
 	}
 
-	private void testSimpleTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,
+	protected void testSimpleTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,
 			Function<Field, FieldSpec> fieldToSpec, Class<?>... differentTypes) {
 		Field[] fields = Arrays.stream(differentTypes).map(c -> new Field(c)).toArray(Field[]::new);
 		testTypes(namePredicate, accessorTypeFilter, fieldToSpec, fields);
 	}
 
-	private void testParameterizedTypes(Predicate<String> namePredicate,
+	protected void testParameterizedTypes(Predicate<String> namePredicate,
 			FieldFilter accessorTypeFilter, Function<Field, FieldSpec> fieldToSpec,
 			Class<?> rawType, Class<?>... firstArgumentTypes) {
 		for (Class<?> types : firstArgumentTypes) {
@@ -537,8 +275,9 @@ public class CodeGenerationTest extends TestBase {
 		}
 	}
 
-	private void testTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,
-			Function<Field, FieldSpec> fieldToSpec, Field... fields) {
+	protected TestEnvironment testTypes(Predicate<String> namePredicate,
+			FieldFilter accessorTypeFilter, Function<Field, FieldSpec> fieldToSpec,
+			Field... fields) {
 		final HashSet<Field> set = Sets.newHashSet(fields);
 		if (set.size() != fields.length)
 			throw new IllegalArgumentException("Duplicate fields are not allowed");
@@ -552,6 +291,11 @@ public class CodeGenerationTest extends TestBase {
 		final TestEnvironment environment = new TestEnvironment(this, source);
 		environment.invokeSaveAndRestore();
 		environment.testSaveRestoreInvocation(namePredicate, accessorTypeFilter, set);
+		return environment;
+	}
+
+	public static String generateClassName() {
+		return TEST_CLASS + classIdentifier.incrementAndGet();
 	}
 
 	public static class TestEnvironment {
@@ -577,9 +321,16 @@ public class CodeGenerationTest extends TestBase {
 				result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 						base.processors(), sources.stream().map(JavaSource::generateFileObject)
 								.toArray(JavaFileObject[]::new));
+				if (result.compilationException != null)
+					throw result.compilationException;
 			} catch (Exception e) {
 				throw new RuntimeException("Compilation was unsuccessful." + printAllSources(), e);
 			}
+
+
+
+			System.out.println(printAllSources());
+
 			final Class<?> testClass;
 			try {
 				final String fqcn = sources.get(0).fqcn();

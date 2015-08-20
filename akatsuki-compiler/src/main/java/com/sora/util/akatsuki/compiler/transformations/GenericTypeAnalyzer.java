@@ -1,32 +1,45 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
-import com.sora.util.akatsuki.compiler.BundleRetainerModel.Field;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
 
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.IntersectionType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 
-public class GenericTransformation extends FieldTransformation<TypeMirror> {
+public class GenericTypeAnalyzer
+		extends CascadingTypeAnalyzer<GenericTypeAnalyzer, TypeMirror, Analysis> {
 
 	private TypeMirror resolvedMirror;
-	private FieldTransformation<? extends TypeMirror> transformation;
 
-	public GenericTransformation(TransformationContext context, Field<?> field) {
+	public GenericTypeAnalyzer(TransformationContext context) {
 		super(context);
-		TypeVariable typeVariable = (TypeVariable) field.refinedMirror();
+
+	}
+
+	@Override
+	protected GenericTypeAnalyzer createInstance(TransformationContext context) {
+		return new GenericTypeAnalyzer(context);
+	}
+
+	@Override
+	protected Analysis createAnalysis(InvocationContext<TypeMirror> context)
+			throws UnknownTypeException {
+
+		TypeVariable typeVariable = (TypeVariable) context.field.refinedMirror();
 		final TypeMirror upperBound = typeVariable.getUpperBound();
+		CascadingTypeAnalyzer<?, ?, ?> transformation = null;
 		if (upperBound instanceof DeclaredType) {
 			// we have a concrete type, good
 			resolvedMirror = upperBound;
-			transformation = resolve(field.refine(resolvedMirror));
+			transformation = resolve(context.field.refine(resolvedMirror));
 		} else if (upperBound instanceof IntersectionType) {
 			for (TypeMirror bound : ((IntersectionType) upperBound).getBounds()) {
 				// as long as the first bound matches anything, we use it
 				// TODO some bounds should have priority such as Parcelable and
 				// serializable. but how do we decide?
-				final FieldTransformation<? extends TypeMirror> found = resolve(
-						field.refine(resolvedMirror));
+				final CascadingTypeAnalyzer<?, ?, ?> found = resolve(
+						context.field.refine(resolvedMirror));
 				if (found != null) {
 					// we can probably do the following analysis to make this
 					// better:
@@ -43,17 +56,11 @@ public class GenericTransformation extends FieldTransformation<TypeMirror> {
 				}
 			}
 		}
-	}
 
-	@Override
-	protected Invocation createInvocation(InvocationContext<TypeMirror> context)
-			throws UnknownTypeException {
 		if (resolvedMirror == null || transformation == null)
 			throw new UnknownTypeException(context.field);
-		if (transformation instanceof SuffixedTransformation) {
-			transformation = ((SuffixedTransformation<?>) transformation)
-					.withForcedCast(resolvedMirror);
-		}
-		return cascade(transformation, context, resolvedMirror);
+
+		return cascade(transformation.target(resolvedMirror).cast(TypeCastStrategy.AUTO_CAST),
+				context, resolvedMirror);
 	}
 }

@@ -11,17 +11,18 @@ import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TypeConstraint;
 import com.sora.util.akatsuki.TypeFilter;
 import com.sora.util.akatsuki.compiler.BundleContext.SimpleBundleContext;
-import com.sora.util.akatsuki.compiler.InvocationSpec.InvocationType;
-import com.sora.util.akatsuki.compiler.transformations.ArrayTransformation;
-import com.sora.util.akatsuki.compiler.transformations.CollectionTransformation;
-import com.sora.util.akatsuki.compiler.transformations.ConverterTransformation;
-import com.sora.util.akatsuki.compiler.transformations.FieldTransformation;
-import com.sora.util.akatsuki.compiler.transformations.FieldTransformation.Invocation;
-import com.sora.util.akatsuki.compiler.transformations.GenericTransformation;
-import com.sora.util.akatsuki.compiler.transformations.NestedTransformation;
-import com.sora.util.akatsuki.compiler.transformations.ObjectTransformation;
-import com.sora.util.akatsuki.compiler.transformations.PrimitiveTransformation;
-import com.sora.util.akatsuki.compiler.transformations.TemplateTransformation;
+import com.sora.util.akatsuki.compiler.transformations.ArrayTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.InvocationType;
+import com.sora.util.akatsuki.compiler.transformations.CollectionTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.ConverterAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.GenericTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.NestedTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.ObjectTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.PrimitiveTypeAnalyzer;
+import com.sora.util.akatsuki.compiler.transformations.PrimitiveTypeAnalyzer.Type;
+import com.sora.util.akatsuki.compiler.transformations.TemplateAnalyzer;
 import com.sora.util.akatsuki.compiler.transformations.TransformationContext;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -77,7 +78,7 @@ public class BundleRetainerModel {
 	private final TypeElement enclosingClass;
 	private BundleRetainerModel superModel;
 
-	public final List<Field> fields = new ArrayList<>();
+	public final List<ProcessorElement<?>> fields = new ArrayList<>();
 
 	public static class FqcnModelMap extends HashMap<String, BundleRetainerModel> {
 
@@ -118,10 +119,10 @@ public class BundleRetainerModel {
 		FqcnModelMap fqcnMap = new FqcnModelMap();
 		int processed = 0;
 		boolean verifyOnly = false;
-		for (Element field : elements) {
+		for (Element element : elements) {
 
 			// skip if error
-			if (!annotatedElementValid(context, field) || !enclosingClassValid(context, field)) {
+			if (!annotatedElementValid(context, element) || !enclosingClassValid(context, element)) {
 				verifyOnly = true;
 				continue;
 			}
@@ -129,18 +130,19 @@ public class BundleRetainerModel {
 			// >= 1 error has occurred, we're in verify mode
 			if (!verifyOnly) {
 
-				final TypeElement enclosingClass = (TypeElement) field.getEnclosingElement();
+				final TypeElement enclosingClass = (TypeElement) element.getEnclosingElement();
 
-				final Retained retained = field.getAnnotation(Retained.class);
+				final Retained retained = element.getAnnotation(Retained.class);
 
 				// transient marks the field as skipped
-				if (!retained.skip() && !field.getModifiers().contains(Modifier.TRANSIENT)) {
+				if (!retained.skip() && !element.getModifiers().contains(Modifier.TRANSIENT)) {
 					final BundleRetainerModel model = fqcnMap.computeIfAbsent(
 							enclosingClass.getQualifiedName().toString(),
 							k -> new BundleRetainerModel(context, enclosingClass));
 					final DeclaredType type = context.utils()
 							.getClassFromAnnotationMethod(retained::converter);
-					model.fields.add(new Field((VariableElement) field, type));
+					model.fields.add(new ProcessorElement((VariableElement) element, type));
+					context.messager().printMessage(Kind.NOTE, "Element marked", element);
 				}
 			}
 			processed++;
@@ -229,7 +231,7 @@ public class BundleRetainerModel {
 				// we found our closest super class
 				if (this.superModel == null)
 					this.superModel = model;
-				fields.stream().filter(Field::notHidden).forEach(field -> {
+				fields.stream().filter(ProcessorElement::notHidden).forEach(field -> {
 					final boolean collision = model.fields.stream().anyMatch(
 							superField -> superField.fieldName().equals(field.fieldName()));
 					field.hidden(collision);
@@ -265,8 +267,9 @@ public class BundleRetainerModel {
 			}
 
 			@Override
-			public FieldTransformation<? extends TypeMirror> resolve(Field<?> field) {
-				return findTransformationStrategy(field);
+			public CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolve(
+					ProcessorElement<?> element) {
+				return findTransformationStrategy(element);
 			}
 		};
 
@@ -279,60 +282,60 @@ public class BundleRetainerModel {
 			this.context = context;
 		}
 
-		private FieldTransformation<? extends TypeMirror> findTransformationStrategy(
-				Field<?> field) {
-			FieldTransformation<?> strategy = null;
+		private CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> findTransformationStrategy(
+				ProcessorElement<?> element) {
+			CascadingTypeAnalyzer<?, ?, ?> strategy = null;
 
 			// @Retained defaults to a dummy converter, we don't want that
 			final TypeMirror dummyConverter = context.utils().of(DummyTypeConverter.class);
-			if (field.typeConverter != null && !transformationContext.utils()
-					.isSameType(field.typeConverter, dummyConverter, true)) {
-				strategy = new ConverterTransformation(transformationContext, field.typeConverter);
+			if (element.typeConverter() != null && !transformationContext.utils()
+					.isSameType(element.typeConverter(), dummyConverter, true)) {
+				strategy = new ConverterAnalyzer(transformationContext, element.typeConverter());
 			}
 
 			if (strategy == null) {
 				final DeclaredType converterType = models.stream()
-						.filter(m -> testTypeConstraint(field.refinedMirror(), m.filters))
+						.filter(m -> testTypeConstraint(element.refinedMirror(), m.filters))
 						.findFirst().map(m -> m.converter).orElse(null);
 				if (converterType != null)
-					strategy = new ConverterTransformation(transformationContext, converterType);
+					strategy = new ConverterAnalyzer(transformationContext, converterType);
 			}
 
 			if (strategy == null)
-				strategy = findTransformationTemplates(transformationContext, templates, field,
+				strategy = findTransformationTemplates(transformationContext, templates, element,
 						Execution.BEFORE);
 
 			if (strategy == null) {
-				final TypeMirror mirror = field.refinedMirror();
+				final TypeMirror mirror = element.refinedMirror();
 				// TODO consider discarding the switch and move the test
 				// condition
 				// into
 				// every strategy
 				if (transformationContext.utils().isPrimitive(mirror)) {
-					strategy = new PrimitiveTransformation(transformationContext);
+					strategy = new PrimitiveTypeAnalyzer(transformationContext, Type.UNBOXED);
 				} else if (transformationContext.utils().isArray(mirror)) {
-					strategy = new ArrayTransformation(transformationContext);
+					strategy = new ArrayTypeAnalyzer(transformationContext);
 				} else if (modelMap.containsKey(mirror.toString())) {
 					// this field is a type that contains the @Retained
 					// annotation
-					strategy = new NestedTransformation(transformationContext);
+					strategy = new NestedTypeAnalyzer(transformationContext);
 				} else if (transformationContext.utils().isAssignable(mirror,
 						transformationContext.utils().of(Collection.class), true)) {
-					strategy = new CollectionTransformation(transformationContext);
+					strategy = new CollectionTypeAnalyzer(transformationContext);
 				} else if (transformationContext.utils().isAssignable(mirror,
 						transformationContext.utils().of(Map.class), true)) {
 					// TODO: 7/24/2015 impl
 				} else if (transformationContext.utils().isObject(mirror)) {
-					strategy = new ObjectTransformation(transformationContext);
+					strategy = new ObjectTypeAnalyzer(transformationContext);
 				} else if (mirror.getKind().equals(TypeKind.TYPEVAR)) {
 					// we got a generic type of some bounds
-					strategy = new GenericTransformation(transformationContext, field);
+					strategy = new GenericTypeAnalyzer(transformationContext);
 				}
 			}
 
 			if (strategy == null) {
-				final FieldTransformation<?> ignored = findTransformationTemplates(context,
-						templates, field, Execution.NEVER);
+				final CascadingTypeAnalyzer<?, ?, Analysis> ignored = findTransformationTemplates(
+						context, templates, element, Execution.NEVER);
 				if (ignored != null)
 					context.messager().printMessage(Kind.NOTE,
 							"found matching strategy:" + ignored.getClass() + " but ignored");
@@ -340,12 +343,13 @@ public class BundleRetainerModel {
 			return strategy;
 		}
 
-		private FieldTransformation<?> findTransformationTemplates(ProcessorContext context,
-				List<TransformationTemplate> templates, Field<?> field, Execution execution) {
+		private CascadingTypeAnalyzer<?, ?, Analysis> findTransformationTemplates(
+				ProcessorContext context, List<TransformationTemplate> templates,
+				ProcessorElement<?> element, Execution execution) {
 			return templates.stream().filter(t -> t.execution() == execution)
-					.filter(template -> testTypeConstraint(field.refinedMirror(),
+					.filter(template -> testTypeConstraint(element.refinedMirror(),
 							template.filters()))
-					.findFirst().map(t -> new TemplateTransformation(transformationContext, t))
+					.findFirst().map(t -> new TemplateAnalyzer(transformationContext, t))
 					.orElse(null);
 		}
 
@@ -387,7 +391,11 @@ public class BundleRetainerModel {
 						? context.types().boxedClass((PrimitiveType) mirror)
 						: context.types().asElement(mirror);
 
-				System.out.println("ele " + element + " mm -> " + mirror);
+				// this happens to array...?
+				// TODO figure this out
+				if(element == null){
+					return false;
+				}
 				List<? extends AnnotationMirror> annotationMirrors;
 				// bounds have different meanings for annotations as
 				// they don't have inheritance
@@ -469,9 +477,9 @@ public class BundleRetainerModel {
 		final TypeResolvingContext resolvingContext = new TypeResolvingContext(templates, models,
 				map, context);
 
-		for (Field field : fields) {
+		for (ProcessorElement<?> field : fields) {
 
-			final FieldTransformation<?> strategy = resolvingContext
+			final CascadingTypeAnalyzer<?, ?, ?> strategy = resolvingContext
 					.findTransformationStrategy(field);
 			if (strategy == null) {
 				context.messager().printMessage(Kind.ERROR,
@@ -481,17 +489,19 @@ public class BundleRetainerModel {
 			} else {
 
 				try {
-					final Invocation save = strategy.transform(bundleContext, field,
+					final Analysis save = strategy.transform(bundleContext, field,
 							InvocationType.SAVE);
-					final Invocation restore = strategy.transform(bundleContext, field,
+					final Analysis restore = strategy.transform(bundleContext, field,
 							InvocationType.RESTORE);
 
-					saveMethodBuilder.addStatement(JavaPoetUtils.escapeStatement(save.create()));
-					restoreMethodBuilder
-							.addStatement(JavaPoetUtils.escapeStatement(restore.create()));
-				} catch (Exception e) {
+					saveMethodBuilder.addCode(JavaPoetUtils.escapeStatement(
+							save.preEmitOnce() + save.emit() + save.postEmitOnce()));
+					restoreMethodBuilder.addCode(JavaPoetUtils.escapeStatement(
+							restore.preEmitOnce() + restore.emit() + restore.postEmitOnce()));
+				} catch (Exception | Error e) {
 					context.messager().printMessage(Kind.ERROR, "an exception occurred: " + e,
 							field.element());
+					throw new RuntimeException(e);
 				}
 			}
 		}
@@ -526,91 +536,6 @@ public class BundleRetainerModel {
 				.add("generatedFqpn", generatedFqpn).add("context", context)
 				.add("enclosingClass", enclosingClass).add("superModel", superModel)
 				.add("fields", fields).toString();
-	}
-
-	public static class Field<T extends TypeMirror> {
-
-		private final VariableElement element;
-		private final CharSequence fieldName;
-
-		private final T mirror;
-		public final DeclaredType typeConverter;
-
-		private boolean hidden = false;
-
-		@SuppressWarnings("unchecked")
-		public Field(VariableElement element, DeclaredType typeConverter) {
-			this.element = element;
-			this.fieldName = element.getSimpleName();
-			this.mirror = (T) element.asType();
-			this.typeConverter = typeConverter;
-		}
-
-		@SuppressWarnings("unchecked")
-		private Field(Field<?> field, T mirror) {
-			this.element = field.element();
-			this.fieldName = field.fieldName();
-			this.mirror = mirror;
-			this.typeConverter = field.typeConverter;
-		}
-
-		// public Field(CharSequence simpleName, T mirror, DeclaredType
-		// typeConverter) {
-		// this.simpleName = simpleName;
-		// this.mirror = mirror;
-		// this.typeConverter = typeConverter;
-		// }
-
-		public VariableElement element() {
-			return element;
-		}
-
-		public CharSequence fieldName() {
-			return fieldName;
-		}
-
-		public CharSequence uniqueName() {
-			if (hidden) {
-				// fieldName_packageName
-				return fieldName.toString() + "_"
-						+ ((TypeElement) element.getEnclosingElement()).getQualifiedName();
-			} else {
-				// fieldName
-				return fieldName;
-			}
-		}
-
-		public TypeMirror fieldMirror() {
-			return element().asType();
-		}
-
-		public T refinedMirror() {
-			return mirror;
-		}
-
-		public <NT extends TypeMirror> Field<NT> refine(NT newTypeMirror) {
-			return new Field<>(this, newTypeMirror);
-		}
-
-		public boolean hidden() {
-			return hidden;
-		}
-
-		public boolean notHidden() {
-			return !hidden;
-		}
-
-		public void hidden(boolean hidden) {
-			this.hidden = hidden;
-		}
-
-		@Override
-		public String toString() {
-			return MoreObjects.toStringHelper(this)
-					// .add("qualifiedName", qualifiedName)
-					.add("mirror", refinedMirror()).toString();
-		}
-
 	}
 
 }

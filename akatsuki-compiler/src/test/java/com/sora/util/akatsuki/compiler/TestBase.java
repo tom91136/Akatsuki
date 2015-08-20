@@ -33,7 +33,7 @@ import javax.tools.JavaFileObject;
 
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
-public class TestBase {
+public abstract class TestBase {
 
 	public static final String TEST_PACKAGE = "test";
 	public static final String TEST_CLASS = "TestClass";

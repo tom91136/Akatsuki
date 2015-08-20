@@ -157,6 +157,13 @@ String
 String[]
 ArrayList<String>
 ```
+ETS (Extended Type Support) allows you to retain even more types:
+
+ - Multidimensional array of all supported types (not encouraged though as an unique key will have to be generated for EVERY element)
+ - `LinkedList`, `CopyOnWriteArrayList` or simply `List` for all `ArrayList` supported types
+
+More types will be added, submit an issue or pull request if you feel something is missing from the list.
+
 ##Annotated types
 Types annotated with `@Retained` will also be saved and restored **but not instantiated**.
 What this means is that you would have to do something like this:

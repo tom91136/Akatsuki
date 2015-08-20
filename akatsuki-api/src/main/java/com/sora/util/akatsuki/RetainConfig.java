@@ -2,6 +2,8 @@ package com.sora.util.akatsuki;
 
 import android.os.Bundle;
 
+import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -47,5 +49,10 @@ public @interface RetainConfig {
 	 * Specifies the optimisation level, defaults to {@link Optimisation#ALL}
 	 */
 	Optimisation optimisation() default Optimisation.ALL;
+
+	/**
+	 * Compile time logging options
+	 */
+	LoggingLevel loggingLevel() default LoggingLevel.VERBOSE;
 
 }

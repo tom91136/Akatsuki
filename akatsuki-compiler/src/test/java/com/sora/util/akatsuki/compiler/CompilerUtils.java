@@ -37,16 +37,28 @@ public class CompilerUtils {
 		CompilationTask task = compiler.getTask(null, fileManager, diagnosticCollector, null,
 				ImmutableSet.of(), Arrays.asList(objects));
 		task.setProcessors(processors);
-		if (!task.call()) {
-			throw new RuntimeException("Compilation failed:\n"
-					+ printVertically(diagnosticCollector.getDiagnostics()));
+		Exception exception = null;
+		try {
+			if (!task.call())
+				throw new RuntimeException("File compiled with error, the cause is unknown");
+		} catch (Exception e) {
+			exception = e;
 		}
+
+		System.out.println(printVertically(diagnosticCollector.getDiagnostics()));
+
+
 		return new Result(fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT),
-				fileManager.getOutputFiles());
+				fileManager.getOutputFiles(),
+				exception == null ? null
+						: new RuntimeException(
+								"Compilation failed:\n"
+										+ printVertically(diagnosticCollector.getDiagnostics()),
+								exception));
 	}
 
 	static String printVertically(List<?> collection) {
-		return Joiner.on("\n").join(collection);
+		return Joiner.on("\n\t>").join(collection);
 	}
 
 	static String printAllSources(List<JavaFileObject> sources) {
@@ -81,10 +93,13 @@ public class CompilerUtils {
 
 		public final ClassLoader classLoader;
 		public final ImmutableList<JavaFileObject> sources;
+		public final Exception compilationException;
 
-		public Result(ClassLoader classLoader, ImmutableList<JavaFileObject> sources) {
+		public Result(ClassLoader classLoader, ImmutableList<JavaFileObject> sources,
+				Exception compilationException) {
 			this.classLoader = classLoader;
 			this.sources = sources;
+			this.compilationException = compilationException;
 		}
 
 		public String printGeneratedSources() {
