@@ -313,6 +313,11 @@ Due to a limitation of APT, if the template is located in another library, you h
 
 **Warning: `@TransformationTemplate` does not do any validation on the templates, however,  syntax errors does prevent your project from compiling which can save you from debugging heedlessly.**
 
+Opt-out
+-------
+Akatsuki is designed to be flexible. You can still retain your fields the old way in conjunction with Akatsuki and nothing will break. There is only one thing to look out for: key collisions (Akatsuki uses the field name as key). 
+
+
 Why another library?
 --------
 Currently, we have [Icepick](https://github.com/frankiesardo/icepick) and possibly some other libraries that I'm not aware of. The main motivation for this library is due to the inflexibility of Icepick. Icepick does not support [Parceler](https://github.com/johncarl81/parceler) which is a deal breaker for me (there's a [discussion](https://github.com/frankiesardo/icepick/pull/20) on why that's the case). Incompatibility between Parceler and Icepick does not justify the creation of a another library, I could have forked Icepick and added the support myself and be happy. But no, I want to see how APT works so I did a [clean room implementation](https://en.wikipedia.org/wiki/Clean_room_design) of Icepick and added some other features.
