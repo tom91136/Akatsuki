@@ -164,6 +164,8 @@ ETS (Extended Type Support) allows you to retain even more types:
 
 More types will be added, submit an issue or pull request if you feel something is missing from the list.
 
+NOTE: Most ETS changes are still experimental and left uncommitted, I will merge them when they are complete. 
+
 ##Annotated types
 Types annotated with `@Retained` will also be saved and restored **but not instantiated**.
 What this means is that you would have to do something like this:
@@ -317,6 +319,19 @@ Opt-out
 -------
 Akatsuki is designed to be flexible. You can still retain your fields the old way in conjunction with Akatsuki and nothing will break. There is only one thing to look out for: key collisions (Akatsuki uses the field name as key). 
 
+Abuse
+-----
+While Akatsuki makes retaining state effortless, it is still constrained by Android's IPC limit (around 1MB, varies between different vendor). What this means is that the `Bundle` used to store your states can still blow up if you annotate too many fields or if the fields contain large amounts of data. When your bundle blows up, [strange things](http://stackoverflow.com/questions/11451393/what-to-do-on-transactiontoolargeexception) happen. 
+
+
+Here are some tips on using Akatsuki:
+
+ - Stuff like TextView text should be retained as Android does it for you (given your `View` has a valid id). 
+ - Huge/Complex data structures should not saved as it might block the main thread while the state is saved
+ - saving `Bitmap`s are not recommended since they are huge
+ - Depending on circumstances, Android might decide that your state can be persisted without actual serialization. Your restored object could be the same object you saved, or a new one with the same value. 
+
+The tips above applies to general Android programming as well.
 
 Why another library?
 --------
@@ -325,13 +340,30 @@ Currently, we have [Icepick](https://github.com/frankiesardo/icepick) and possib
 Download
 --------
 
+**IMPORTANT**
+
+The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)
+
+Pay special attention to the build script:
 ```groovy
- compile 'com.sora.util.akatsuki:akatsuki-api:0.0.1'
- apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.1'
+// your source/target compatibility remains 1_7, do NOT change it to 1_8
+compileOptions {
+	sourceCompatibility JavaVersion.VERSION_1_7
+	targetCompatibility JavaVersion.VERSION_1_7
+}
+// exception: do keep 1_8 if you happen to be using retrolambda
+
+```
+The dependencies:
+```groovy
+dependencies {
+	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.1'
+	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.1'
+}
 ```
 Optional parceler support:
 ```groovy
- compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
 ```
 You can download the sample app [here](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.1/) if you want to test it out (nothing surprising though, just a very simple demo with a `Fragment` + `NumberPicker`/`EditText`).
 
