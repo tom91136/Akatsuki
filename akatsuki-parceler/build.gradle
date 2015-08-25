@@ -1,8 +1,8 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 22
-    buildToolsVersion "22.0.1"
+    compileSdkVersion 23
+    buildToolsVersion '23.0.0'
 
     defaultConfig {
         minSdkVersion 14
@@ -20,7 +20,7 @@ android {
 
 dependencies {
     compile project(':akatsuki-api')
-    compile "org.parceler:parceler-api:1.0.3"
+    compile 'org.parceler:parceler-api:1.0.3'
 }
 
 apply from: file('../deploy-android.gradle')
