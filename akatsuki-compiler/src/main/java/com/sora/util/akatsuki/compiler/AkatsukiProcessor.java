@@ -80,14 +80,12 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		}
 
 		if (map.isEmpty()) {
-			messager().printMessage(Kind.NOTE,
-					"round has no elements, classes possibly originated from another annotation processor. "
-							+ "Root:" + annotations);
+			messager().printMessage(Kind.OTHER,
+					"Round has no elements, classes possibly originated from another annotation processor. ");
 			return false;
 		}
 
 		map.values().stream().forEach(m -> {
-			// messager().printMessage(Kind.OTHER, m.toString());
 			try {
 				m.writeSourceToFile(processingEnv.getFiler(), templates, map, declaredConverters);
 			} catch (IOException e) {

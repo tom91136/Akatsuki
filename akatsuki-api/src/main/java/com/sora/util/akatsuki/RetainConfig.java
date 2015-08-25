@@ -3,6 +3,7 @@ package com.sora.util.akatsuki;
 import android.os.Bundle;
 
 import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+import com.sora.util.akatsuki.Retained.RestorePolicy;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -51,8 +52,14 @@ public @interface RetainConfig {
 	Optimisation optimisation() default Optimisation.ALL;
 
 	/**
+	 * Global {@link RestorePolicy} setting, see
+	 * {@link Retained#restorePolicy()}
+	 */
+	RestorePolicy restorePolicy() default RestorePolicy.DEFAULT;
+
+	/**
 	 * Compile time logging options
 	 */
-	LoggingLevel loggingLevel() default LoggingLevel.VERBOSE;
+	LoggingLevel loggingLevel() default LoggingLevel.ERROR_ONLY;
 
 }

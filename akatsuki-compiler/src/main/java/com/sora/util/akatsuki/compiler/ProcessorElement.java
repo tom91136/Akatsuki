@@ -2,6 +2,8 @@ package com.sora.util.akatsuki.compiler;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
+import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.CodeTransform;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,11 +18,13 @@ import javax.lang.model.type.TypeMirror;
 
 public class ProcessorElement<T extends TypeMirror> {
 
+	private final Retained retained;
+
 	private final Element originatingElement;
 	private final TypeElement enclosingElement;
 
-	private final List<Function<String, String>> keyNameTransformations;
-	private final List<Function<String, String>> fieldAccessorTransformations;
+	private final List<CodeTransform> keyNameTransformations;
+	private final List<CodeTransform> fieldAccessorTransformations;
 	private String fieldName;
 	private String accessorExpression;
 
@@ -31,7 +35,9 @@ public class ProcessorElement<T extends TypeMirror> {
 	private boolean hidden = false;
 
 	@SuppressWarnings("unchecked")
-	public ProcessorElement(VariableElement element, DeclaredType typeConverter) {
+	public ProcessorElement(Retained retained, VariableElement element,
+			DeclaredType typeConverter) {
+		this.retained = retained;
 		this.originatingElement = element;
 		this.enclosingElement = ((TypeElement) element.getEnclosingElement());
 
@@ -47,6 +53,7 @@ public class ProcessorElement<T extends TypeMirror> {
 	// copy constructor
 	@SuppressWarnings("unchecked")
 	private ProcessorElement(ProcessorElement<?> element) {
+		this.retained = element.retained;
 		this.originatingElement = element.originatingElement;
 		this.enclosingElement = element.enclosingElement;
 
@@ -59,7 +66,11 @@ public class ProcessorElement<T extends TypeMirror> {
 		this.typeConverter = element.typeConverter;
 	}
 
-	public Element element() {
+	public Retained retained(){
+		return retained;
+	}
+
+	public Element originatingElement() {
 		return originatingElement;
 	}
 
@@ -176,7 +187,7 @@ public class ProcessorElement<T extends TypeMirror> {
 			return this;
 		}
 
-		public Builder<T> fieldNameTransforms(Function<String, String> transform) {
+		public Builder<T> fieldNameTransforms(CodeTransform transform) {
 			element.fieldAccessorTransformations.add(transform);
 			return this;
 		}

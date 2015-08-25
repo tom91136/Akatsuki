@@ -93,12 +93,13 @@ public class Akatsuki {
 	 * instance
 	 *
 	 * @param instance
-	 *            the object that needs restoring
+	 *            the object that needs restoring, null-safe (method returns a
+	 *            null if the instance itself is null)
 	 * @param savedInstanceState
 	 *            the bundle containing the saved fields, null-safe
 	 */
 	public static void restore(Object instance, Bundle savedInstanceState) {
-		if (savedInstanceState == null)
+		if (savedInstanceState == null || instance == null)
 			return;
 		getInstance(instance).restore(instance, savedInstanceState);
 	}

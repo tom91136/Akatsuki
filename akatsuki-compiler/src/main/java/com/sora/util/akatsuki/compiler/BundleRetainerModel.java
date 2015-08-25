@@ -141,7 +141,7 @@ public class BundleRetainerModel {
 							k -> new BundleRetainerModel(context, enclosingClass));
 					final DeclaredType type = context.utils()
 							.getClassFromAnnotationMethod(retained::converter);
-					model.fields.add(new ProcessorElement((VariableElement) element, type));
+					model.fields.add(new ProcessorElement(retained, (VariableElement) element, type));
 					context.messager().printMessage(Kind.NOTE, "Element marked", element);
 				}
 			}
@@ -169,6 +169,12 @@ public class BundleRetainerModel {
 			return false;
 		}
 
+		// more sanity check
+		if (!(element instanceof VariableElement)) {
+			context.messager().printMessage(Kind.ERROR, "Element is not a variable?! (should not happen at all) ", element);
+			return false;
+		}
+
 		// check for invalid modifiers, we can only create classes in the
 		// same package
 		if (!Collections.disjoint(element.getModifiers(), DISALLOWED_MODIFIERS)) {
@@ -177,6 +183,7 @@ public class BundleRetainerModel {
 					element);
 			return false;
 		}
+
 		return true;
 	}
 
@@ -485,7 +492,7 @@ public class BundleRetainerModel {
 				context.messager().printMessage(Kind.ERROR,
 						"unsupported field, reflected type is " + field.refinedMirror()
 								+ " representing class is " + field.refinedMirror().getClass(),
-						field.element());
+						field.originatingElement());
 			} else {
 
 				try {
@@ -500,7 +507,7 @@ public class BundleRetainerModel {
 							restore.preEmitOnce() + restore.emit() + restore.postEmitOnce()));
 				} catch (Exception | Error e) {
 					context.messager().printMessage(Kind.ERROR, "an exception occurred: " + e,
-							field.element());
+							field.originatingElement());
 					throw new RuntimeException(e);
 				}
 			}

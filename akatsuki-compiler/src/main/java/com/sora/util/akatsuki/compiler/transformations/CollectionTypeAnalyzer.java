@@ -108,6 +108,10 @@ public class CollectionTypeAnalyzer
 
 			final Analysis analysis = cascade(resolve(context.field.refine(typeMirror)), context,
 					typeMirror);
+			if(analysis == null)
+				throw new UnknownTypeException(context.field);
+
+			throw new UnsupportedOperationException("not implemented(yet?), use Parceler instead");
 
 			// return new Invocation() {
 			// @Override
@@ -118,8 +122,6 @@ public class CollectionTypeAnalyzer
 			// }
 			// };
 		}
-
-		throw new UnknownTypeException(context.field);
 	}
 
 	private Optional<TypeMirror> getSupportedArrayListType(ProcessorElement<DeclaredType> field) {

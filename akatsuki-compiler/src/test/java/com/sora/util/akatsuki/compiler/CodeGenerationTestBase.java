@@ -30,6 +30,7 @@ import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.RetainerCache;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
+import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
 import com.sora.util.akatsuki.TypeConstraint;
 import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.sora.util.akatsuki.TypeConverter;
@@ -85,128 +86,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 		return Array.newInstance(clazz, 0).getClass();
 	}
 
-	public static class StringObjectTypeConverter implements TypeConverter<StringObject> {
 
-		@Override
-		public void save(Bundle bundle, StringObject stringObject, String key) {
-			bundle.putString(key, stringObject.actualString);
-		}
-
-		@Override
-		public StringObject restore(Bundle bundle, StringObject stringObject, String key) {
-			stringObject.actualString = bundle.getString(key);
-			return stringObject;
-		}
-	}
-
-	protected void testTypeConverter(boolean registered) {
-		final Field retainedField = new Field(StringObject.class, "a",
-				"new " + StringObject.class.getCanonicalName() + "(\"A\")");
-		final Builder fieldBuilder = retainedField.fieldSpecBuilder();
-		final ArrayList<JavaSource> sources = new ArrayList<>();
-		if (registered) {
-			fieldBuilder.addAnnotation(Retained.class);
-			final AnnotationSpec constraintSpec = AnnotationSpec.builder(TypeConstraint.class)
-					.addMember("type", "$T.class", StringObject.class).build();
-
-			final AnnotationSpec.Builder filterSpec = AnnotationSpec.builder(TypeFilter.class)
-					.addMember("type", "$L", constraintSpec);
-
-			final AnnotationSpec converterSpec = AnnotationSpec.builder(DeclaredConverter.class)
-					.addMember("value", "$L", filterSpec.build()).build();
-
-			final String converterName = generateClassName();
-			JavaSource converter = new JavaSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
-					.builderTransformer(
-							(builder, source) -> builder.superclass(StringObjectTypeConverter.class)
-									.addAnnotation(converterSpec));
-			sources.add(converter);
-
-		} else {
-			fieldBuilder.addAnnotation(AnnotationSpec.builder(Retained.class)
-					.addMember("converter", "$T.class", StringObjectTypeConverter.class).build());
-		}
-		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-				Modifier.PUBLIC).fields(fieldBuilder.build());
-		// out test class always goes in front
-		sources.add(0, testClass);
-		final TestEnvironment environment = new TestEnvironment(this, sources);
-		environment.invokeSaveAndRestore();
-	}
-
-	@Target(ElementType.TYPE)
-	@Retention(RetentionPolicy.RUNTIME)
-	public @interface RandomAnnotation {
-
-	}
-
-	public static abstract class BaseStringObject {
-
-	}
-
-	@RandomAnnotation
-	public static class StringObject extends BaseStringObject {
-		private String actualString;
-
-		public StringObject(String actualString) {
-			this.actualString = actualString;
-		}
-
-		public static String wrap(StringObject object) {
-			return object == null ? null : object.actualString;
-		}
-
-		public static StringObject unwrap(String actualString) {
-			return new StringObject(actualString);
-		}
-	}
-
-	public static class InheritedStringObject extends StringObject {
-
-		public InheritedStringObject(String actualString) {
-			super(actualString);
-		}
-	}
-
-	protected void testTransformationTemplate(Bound bound, Class<?> staticClass,
-			Class<?>... constraints) {
-		final String objectFqcn = staticClass.getCanonicalName();
-
-		final AnnotationSpec.Builder annotationSpec = AnnotationSpec
-				.builder(TransformationTemplate.class)
-				.addMember("save", "$S",
-						"{{bundle}}.putString({{keyName}}, " + objectFqcn + ".wrap"
-								+ "({{fieldName}}))")
-				.addMember("restore", "$S",
-						"{{fieldName}} = " + objectFqcn + ".unwrap({{bundle}}.getString"
-								+ "({{keyName}}))")
-				.addMember("execution", "$T.$L", Execution.class, Execution.BEFORE);
-
-		for (Class<?> constraint : constraints) {
-			final AnnotationSpec constraintsSpec = AnnotationSpec.builder(TypeConstraint.class)
-					.addMember("type", "$T.class", constraint)
-					.addMember("bound", "$T.$L", Bound.class, bound).build();
-
-			AnnotationSpec.Builder filterSpec = AnnotationSpec.builder(TypeFilter.class);
-			filterSpec.addMember("type", "$L", constraintsSpec);
-
-			annotationSpec.addMember("filters", "$L", filterSpec.build());
-
-		}
-
-		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-				Modifier.PUBLIC).fields(
-						new RetainedField(StringObject.class, "a", "new " + objectFqcn + "(\"A\")")
-								.createFieldSpec());
-		testClass.builderTransformer(
-				(builder, source) -> builder.addAnnotation(annotationSpec.build()));
-
-		final TestEnvironment environment = new TestEnvironment(this, testClass);
-
-		environment.invokeSaveAndRestore();
-		environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
-				Collections.singleton(new RetainedField(String.class, "a")));
-	}
 
 	protected TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
 		final JavaSource superClass = new JavaSource(TEST_PACKAGE, generateClassName(),
@@ -326,8 +206,6 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			} catch (Exception e) {
 				throw new RuntimeException("Compilation was unsuccessful." + printAllSources(), e);
 			}
-
-
 
 			System.out.println(printAllSources());
 

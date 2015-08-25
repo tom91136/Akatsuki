@@ -5,6 +5,7 @@ import com.google.common.base.Strings;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+import com.sora.util.akatsuki.Retained.RestorePolicy;
 import com.sora.util.akatsuki.compiler.AkatsukiProcessor;
 import com.sora.util.akatsuki.compiler.BundleContext;
 import com.sora.util.akatsuki.compiler.MustacheUtils;
@@ -254,58 +255,28 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	static class DefaultAnalysis extends ChainedAnalysis {
 
 		private final Map<String, Object> scope;
-		private RawExpression expression;
+		private String prepend = "", append = "";
+		private RawStatement expression;
 
-		public interface RawExpression {
-
-			String render(Object scope);
-
-			void transform(CodeTransform transformation);
-
-		}
-
-		public static class InvocationExpression implements RawExpression {
-
-			private String template;
-
-			public InvocationExpression(String template) {
-				this.template = template;
-			}
-
-			@Override
-			public String render(Object scope) {
-				return MustacheUtils.render(scope, template) + ";\n";
-			}
-
-			@Override
-			public void transform(CodeTransform transform) {
-				template = transform.apply(template);
-			}
-		}
-
-		public static class InvocationAssignmentExpression extends InvocationExpression {
-
-			private final String variable;
-
-			public InvocationAssignmentExpression(String variable, String template) {
-				super(template);
-				this.variable = variable;
-			}
-
-			@Override
-			public String render(Object scope) {
-				return MustacheUtils.render(scope, variable) + " = " + super.render(scope);
-			}
-		}
-
-		DefaultAnalysis(Map<String, Object> scope, RawExpression expression) {
+		DefaultAnalysis(Map<String, Object> scope, RawStatement statement) {
 			this.scope = scope;
-			this.expression = expression;
+			this.expression = statement;
 		}
 
 		@Override
 		public String emit() {
-			return transforms.apply(expression.render(scope));
+			return MustacheUtils.render(scope, prepend) + transforms.apply(expression.render(scope))
+					+ MustacheUtils.render(scope, append);
+		}
+
+		DefaultAnalysis prepend(String prepend) {
+			this.prepend = prepend;
+			return this;
+		}
+
+		DefaultAnalysis append(String append) {
+			this.append = append;
+			return this;
 		}
 
 		@Override
@@ -313,29 +284,58 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 			expression.transform(transform);
 		}
 
-		static Map<String, Object> createScope(ProcessorElement<?> element,
-				BundleContext bundleContext) {
-			final HashMap<String, Object> map = new HashMap<>();
-			map.put("fieldName",
-					element.accessor(fn -> bundleContext.sourceObjectName() + "." + fn));
-			map.put("keyName", element.keyName());
-			map.put("bundle", bundleContext.bundleObjectName());
-			return map;
-		}
-
-		static <T extends TypeMirror> DefaultAnalysis of(CascadingTypeAnalyzer<?, T, ?> analyzer,
-				String methodName, InvocationContext<T> context) {
+		private static <T extends TypeMirror> Map<String, Object> createScope(
+				InvocationContext<T> context) {
 			final HashMap<String, Object> scope = new HashMap<>();
 			scope.put("fieldName", context.field
 					.accessor(fn -> context.bundleContext.sourceObjectName() + "." + fn));
 			scope.put("keyName", context.field.keyName());
 			scope.put("bundle", context.bundleContext.bundleObjectName());
-			scope.put("methodName", methodName);
+			return scope;
+		}
 
-			RawExpression expression;
+		static <T extends TypeMirror> DefaultAnalysis of(CascadingTypeAnalyzer<?, T, ?> analyzer,
+				RawStatement statement, InvocationContext<T> context,
+				Map<String, Object> extraScope) {
+			final Map<String, Object> scope = createScope(context);
+			if (extraScope != null)
+				scope.putAll(extraScope);
+			DefaultAnalysis analysis = new DefaultAnalysis(scope, statement);
+
+			if (context.type == InvocationType.RESTORE) {
+				RestorePolicy policy = context.field.retained().restorePolicy();
+				if (policy == RestorePolicy.DEFAULT) {
+					policy = AkatsukiProcessor.retainConfig().restorePolicy();
+				}
+				// policy only works on objects as primitives have default
+				// values which we can't really check for :(
+				if (!analyzer.utils().isPrimitive(context.field.fieldMirror())) {
+					switch (policy) {
+					case IF_NULL:
+						analysis.prepend("if({{fieldName}} == null){\n").append("}\n");
+						break;
+					case IF_NOT_NULL:
+						analysis.prepend("if({{fieldName}} != null){\n").append("}\n");
+						break;
+					default:
+					case DEFAULT:
+					case OVERWRITE:
+						// do nothing
+						break;
+					}
+				}
+			}
+			return analysis;
+		}
+
+		static <T extends TypeMirror> DefaultAnalysis of(CascadingTypeAnalyzer<?, T, ?> analyzer,
+				String methodName, InvocationContext<T> context) {
+			final HashMap<String, Object> scope = new HashMap<>();
+			scope.put("methodName", methodName);
+			RawStatement statement;
 			if (context.type == InvocationType.SAVE) {
 				// field mirror -> target mirror , we don't need to cast
-				expression = new InvocationExpression(
+				statement = new InvocationStatement(
 						"{{bundle}}.put{{methodName}}({{keyName}}, {{fieldName}})");
 			} else {
 				if (analyzer.targetMirror != null) {
@@ -348,10 +348,10 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 						scope.put("castExpression", castExpression);
 					}
 				}
-				expression = new InvocationAssignmentExpression("{{fieldName}}",
+				statement = new InvocationAssignmentStatement("{{fieldName}}",
 						"{{#cast}}({{castExpression}}){{/cast}}{{bundle}}.get{{methodName}}({{keyName}})");
 			}
-			return new DefaultAnalysis(scope, expression);
+			return of(analyzer, statement, context, scope);
 		}
 
 	}
@@ -401,4 +401,45 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 		}
 	}
 
+	public interface RawStatement {
+
+		String render(Object scope);
+
+		void transform(CodeTransform transformation);
+
+	}
+
+	public static class InvocationStatement implements RawStatement {
+
+		private String template;
+
+		public InvocationStatement(String template) {
+			this.template = template;
+		}
+
+		@Override
+		public String render(Object scope) {
+			return MustacheUtils.render(scope, template) + ";\n";
+		}
+
+		@Override
+		public void transform(CodeTransform transform) {
+			template = transform.apply(template);
+		}
+	}
+
+	public static class InvocationAssignmentStatement extends InvocationStatement {
+
+		private final String variable;
+
+		public InvocationAssignmentStatement(String variable, String template) {
+			super(template);
+			this.variable = variable;
+		}
+
+		@Override
+		public String render(Object scope) {
+			return MustacheUtils.render(scope, variable) + " = " + super.render(scope);
+		}
+	}
 }

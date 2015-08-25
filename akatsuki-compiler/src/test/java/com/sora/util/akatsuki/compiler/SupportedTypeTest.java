@@ -226,57 +226,6 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 		testGenericType(Parcelable.class, Serializable.class);
 	}
 
-	@Test
-	public void testTransformationTemplateClassConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class);
-	}
 
-	@Test(expected = RuntimeException.class)
-	public void testTransformationTemplateInvalidClassConstraint() {
-		// should not match anything and fail to compile
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, BaseStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateSubClassConstraint() {
-		testTransformationTemplate(Bound.EXTENDS, StringObject.class, InheritedStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateSuperClassConstraint() {
-		testTransformationTemplate(Bound.SUPER, StringObject.class, BaseStringObject.class);
-	}
-
-	@Test
-	public void testTransformationTemplateAnnotationConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTransformationTemplateInheritedAnnotationConstraint() {
-		testTransformationTemplate(Bound.EXTENDS, InheritedStringObject.class,
-				RandomAnnotation.class);
-		testTransformationTemplate(Bound.SUPER, InheritedStringObject.class,
-				RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTransformationTemplateMixedConstraint() {
-		testTransformationTemplate(Bound.EXACTLY, StringObject.class, StringObject.class,
-				RandomAnnotation.class);
-
-	}
-
-	@Test
-	public void testTypeConverter() {
-		testTypeConverter(false);
-	}
-
-	@Test
-	public void testRegisteredTypeConverter() {
-		testTypeConverter(true);
-	}
 
 }

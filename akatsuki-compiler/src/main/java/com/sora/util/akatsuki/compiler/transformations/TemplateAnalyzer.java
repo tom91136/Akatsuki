@@ -1,8 +1,11 @@
 package com.sora.util.akatsuki.compiler.transformations;
 
+import com.google.common.base.Strings;
 import com.sora.util.akatsuki.TransformationTemplate;
+import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
 import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis.InvocationExpression;
+
+import java.lang.annotation.Annotation;
 
 import javax.lang.model.type.TypeMirror;
 
@@ -24,10 +27,32 @@ public class TemplateAnalyzer
 	@Override
 	protected Analysis createAnalysis(InvocationContext<TypeMirror> context)
 			throws UnknownTypeException {
-		// TODO: 8/20/2015 this is broken, fix it
-		return new DefaultAnalysis(
-				DefaultAnalysis.createScope(context.field, context.bundleContext),
-				new InvocationExpression((context.type == InvocationType.SAVE ? template.save()
-						: template.restore())));
+		RawStatement statement = toStatement(
+				context.type == InvocationType.SAVE ? template.save() : template.restore());
+		return DefaultAnalysis.of(this, statement, context, null);
 	}
+
+	private RawStatement toStatement(StatementTemplate template) {
+		switch (template.type()) {
+		case ASSIGNMENT:
+			if (Strings.isNullOrEmpty(template.variable())) {
+				throw new BadTemplateException(template,
+						"Type.ASSIGNMENT cannot contain blank variable");
+			}
+			return new InvocationAssignmentStatement(template.variable(), template.value());
+		default:
+		case INVOCATION:
+			if (!Strings.isNullOrEmpty(template.variable()))
+				throw new BadTemplateException(template, "Type.INVOCATION cannot contain variable");
+			return new InvocationStatement(template.value());
+		}
+	}
+
+	private static class BadTemplateException extends RuntimeException {
+
+		public BadTemplateException(Annotation annotation, String message) {
+			super(message + "; Annotation:" + annotation);
+		}
+	}
+
 }

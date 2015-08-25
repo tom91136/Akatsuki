@@ -18,10 +18,9 @@ package com.sora.util.akatsuki.compiler.transformations;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis.InvocationAssignmentExpression;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis.InvocationExpression;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis.RawExpression;
 
+
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.lang.model.element.TypeElement;
@@ -45,20 +44,18 @@ public class ConverterAnalyzer
 	@Override
 	protected Analysis createAnalysis(InvocationContext<TypeMirror> context)
 			throws UnknownTypeException {
-		final Map<String, Object> scope = DefaultAnalysis.createScope(context.field,
-				context.bundleContext);
+		final Map<String, Object> scope = new HashMap<>();
 		scope.put("class", converterElement.getQualifiedName() + ".class");
 		scope.put("akatsuki", Akatsuki.class.getName());
 
-		RawExpression expression;
-
+		RawStatement statement;
 		if (context.type == InvocationType.SAVE) {
-			expression = new InvocationExpression(
+			statement = new InvocationStatement(
 					"{{akatsuki}}.converter({{class}}).save({{bundle}}, {{fieldName}}, {{keyName}});\n");
 		} else {
-			expression = new InvocationAssignmentExpression("{{fieldName}}", "{{akatsuki}}.converter({{class}}).restore({{bundle}}, {{fieldName}}, {{keyName}});\n");
-			
+			statement = new InvocationAssignmentStatement("{{fieldName}}",
+					"{{akatsuki}}.converter({{class}}).restore({{bundle}}, {{fieldName}}, {{keyName}});\n");
 		}
-		return new DefaultAnalysis(scope, expression);
+		return DefaultAnalysis.of(this, statement, context, scope);
 	}
 }
