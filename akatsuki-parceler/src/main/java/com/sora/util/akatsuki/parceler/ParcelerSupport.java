@@ -1,7 +1,6 @@
 package com.sora.util.akatsuki.parceler;
 
 import com.sora.util.akatsuki.TransformationTemplate;
-import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate.Type;
 import com.sora.util.akatsuki.TypeConstraint;
