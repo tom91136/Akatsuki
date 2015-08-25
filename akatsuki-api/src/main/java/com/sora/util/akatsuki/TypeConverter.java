@@ -30,13 +30,13 @@ public interface TypeConverter<T> {
 	 * 
 	 * @param bundle
 	 *            the bundle holding the saved instance
-	 * @param t
-	 *            the instance
+	 * @param initializer
+	 *            the initializer value(possibly null)
 	 * @param key
 	 *            the exact key provided in
 	 *            {@link #save(Bundle, Object, String)}
 	 * @return the restored instance
 	 */
-	T restore(Bundle bundle, T t, String key);
+	T restore(Bundle bundle, T initializer, String key);
 
 }
