@@ -19,7 +19,7 @@ import butterknife.ButterKnife;
  * A placeholder fragment containing a simple view.
  */
 
-public class MainActivityFragment extends Fragment {
+public class MainActivityFragment extends BaseRetainedFragment {
 
 	@Retained int theValue;
 
@@ -48,9 +48,5 @@ public class MainActivityFragment extends Fragment {
 		return view;
 	}
 
-	@Override
-	public void onSaveInstanceState(Bundle outState) {
-		super.onSaveInstanceState(outState);
-		Akatsuki.save(this, outState);
-	}
+
 }
