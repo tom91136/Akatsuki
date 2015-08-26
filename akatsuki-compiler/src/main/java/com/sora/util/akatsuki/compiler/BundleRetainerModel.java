@@ -2,6 +2,7 @@ package com.sora.util.akatsuki.compiler;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
+import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.Retained;
@@ -120,7 +121,8 @@ public class BundleRetainerModel {
 							.getClassFromAnnotationMethod(retained::converter);
 					model.fields
 							.add(new ProcessorElement(retained, (VariableElement) element, type));
-					context.messager().printMessage(Kind.NOTE, "Element marked", element);
+					if (AkatsukiProcessor.retainConfig().loggingLevel() == LoggingLevel.VERBOSE)
+						context.messager().printMessage(Kind.NOTE, "Element marked", element);
 				}
 			}
 			processed++;

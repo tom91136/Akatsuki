@@ -1,6 +1,7 @@
 package com.sora.util.akatsuki.compiler;
 
 import com.google.auto.service.AutoService;
+import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
 import com.sora.util.akatsuki.DeclaredConverter;
 import com.sora.util.akatsuki.IncludeClasses;
 import com.sora.util.akatsuki.RetainConfig;
@@ -80,8 +81,9 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		}
 
 		if (map.isEmpty()) {
-			messager().printMessage(Kind.OTHER,
-					"Round has no elements, classes possibly originated from another annotation processor. ");
+			if (retainConfig().loggingLevel() == LoggingLevel.VERBOSE)
+				messager().printMessage(Kind.OTHER,
+						"Round has no elements, classes possibly originated from another annotation processor. ");
 			return false;
 		}
 
