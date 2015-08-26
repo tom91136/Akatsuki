@@ -16,7 +16,7 @@ public class MainActivity extends Activity {
 
     @Retained String myString;
     @Retained int myInt;
-    @Retained Account account; // Account implements Parcelable
+    @Retained android.accounts.Account account; // Account implements Parcelable
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
 	
 	String myString;
 	int myInt;
-    Account account;
+    android.accounts.Account account;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -97,27 +97,10 @@ public static class MyView extends View {
 	}
 }
 ```
-<a name="nested-retain"></a>Because `Bundle` is just a type safe container for `Parcel`, you can also use Akatsuki like so:
-
-```java
-// you can have some bean
-static class MyStuff{
-	@Retained int foo;
-	@Retained String bar;
-	// your getters/setters etc
-}
-
-// serialize your bean into a Bundle
-MyStuff stuff = new MyStuff();
-Bundle bundle = Akatsuki.serialize(stuff);
-
-
-// restore your bean from the Bundle
-MyStuff stuff = Akatsuki.deserialize(new MyStuff(), bundle);
-```
 
 For debug purposes, `@Retain` has a method called `skip()`, when set to true, the field will not be retained. Adding the `transient` modifier also has the same effect.
 
+If you need more control on how Akatsuki saves and restores your fields, you can use the `@RetainConfig` annotation. Annotate it anywhere you like as it's just a compile time annotation. 
 
 
 Supported types
@@ -161,33 +144,13 @@ ArrayList<String>
 ```
 ETS (Extended Type Support) allows you to retain even more types:
 
- - Multidimensional array of all supported types (not encouraged though as an unique key will have to be generated for EVERY element)
+ - Experimental support for multidimensional arrays of all supported types (not encouraged though as an unique key will have to be generated for EVERY element)
  - `LinkedList`, `CopyOnWriteArrayList` or simply `List` for all `ArrayList` supported types
 
 More types will be added, submit an issue or pull request if you feel something is missing from the list.
 
-NOTE: Most ETS changes are still experimental and left uncommitted, I will merge them when they are complete. 
 
-##Annotated types
-Types annotated with `@Retained` will also be saved and restored **but not instantiated**.
-What this means is that you would have to do something like this:
 
-    
-```java
-@Retained MyType foo; // MyType has fields annotated with @Retained
-@Retained int bar;
-
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
-    // manually instantiate your custom type
-	foo = new MyType(/* some arguments*/); 
-	// bar is a supported type so no need to instantiate
-    Akatsuki.restore(this, savedInstanceState); 
-}
-```
-This is because Akatsuki does not know how your custom type is created so you will have to instantiate it yourself **BEFORE** `Akatsuki.restore(Object, Bundle)` is called. 
 ##Generic parameters
 Generic parameters are supported if and only if the type can be computed at compile time. This means that a type `<T>` must have known bounds.  
 The following examples will work
@@ -202,10 +165,59 @@ Inheritance
 -----------
 **Inheritance is fully supported**, annotated fields will continue to persist in subclasses.
 
+You can do something like this:
+```java
+public abstract class BaseRetainedFragment extends Fragment {
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		Akatsuki.restore(this, savedInstanceState);
+	}
+
+	@Override
+	public void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		Akatsuki.save(this, outState);
+	}
+}
+
+public class FooFragment extends BaseRetainedFragment {
+
+	@Retained int foo;
+	
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {
+		final View view = inflater.inflate(R.layout.fragment_main, container, false);
+		//Akatsuki.restore(this, savedInstanceState); thanks to inheritance support, you don't have to do this
+		return view;
+	}
+
+}
+```
+NOTE: Even if you accidentally call restore more than once,  nothing would break as the last call will overwrite the result from previous calls.  
+
+One interesting aspect of Akatsuki is that it give you control on how the object is retained, for example: you can add additional null checks while restoring by using `RestorePolicy.IF_NULL` in`@Retained` (or @RetainConfig if you want to do this globally)
+
+
+
+That being said, a null check will be performed before an Object is restored so that we don't overwrite our previous restorations. Y
+
+
+
 
 ##Field hiding
 [Field hiding](https://docs.oracle.com/javase/tutorial/java/IandI/hidevariables.html) is supported through traversing the class hierarchy to avoid field name collisions.
 NOTE: The use of field hiding is discouraged as it makes code hard to follow.
+
+Compatibility with other libraries
+------
+
+ - ParcelablePlease - working as intended
+ - Parceler - plugin avaliable
+ - FragmentArgs - not sure, have to test
+ - Butterknife - working as intended
 
 
 
@@ -243,7 +255,8 @@ public class FooConverter implements TypeConverter<Foo> {
 		bundle.putString(key + "timestamp", foo.timestamp.toString());
 	}
 	@Override
-	public Foo restore(Bundle bundle, Foo foo, String key) {
+	public Foo restore(Bundle bundle, Foo initializer, String key) {
+		Foo foo = new Foo();
 		foo.name = bundle.getString(key + "name");
 		foo.id = bundle.getInt(key + "id");
 		// new Date(String) is for illustration purpose only, do not use!
@@ -264,7 +277,8 @@ public class BetterFooConverter extends MultiKeyTypeConverter<Foo> {
 		return keys;
 	}
 	@Override
-	protected Foo restoreMultiple(Bundle bundle, Foo foo, String[] keys) {
+	protected Foo restoreMultiple(Bundle bundle, Foo initializer, String[] keys) {
+		Foo foo = new Foo();
 		foo.name = bundle.getString(keys[0]);
 		foo.id = bundle.getInt(keys[1]);
 		foo.timestamp = new Date(bundle.getString(keys[2]));
@@ -277,38 +291,53 @@ To let Akatsuki know about the converter, simply use:
 ```java
 @Retained(converter = BetterFooConverter.class) Foo myFoo;
 ```
-or if you have many fields, register the converter so that `Foo` automatically uses the converter:
+or if you use `Foo` everywhere, register the converter so that `Foo` automatically uses the converter:
 ```java
 @DeclaredConverter(@TypeFilter(type=@TypeConstraint(type = Foo.class)))
 public class BetterFooConverter extends MultiKeyTypeConverter<Foo> {
 	// ...
 }
 ```
-Using converters do incur a tiny performance impact as the converter has to be instantiated before the type can be properly serialized(Only once through reflection). Also, custom types can also have `@Retained` like described [here](#nested-retain).
-In that case we can just add `@Retained` to all the fields like:
-```java
-public class Foo {
-	@Retained String name;
-	@Retained int id;
-	@Retained Date timestamp; // not supported natively...
-}
-```
-And write your custom `TypeConverter` just for the `Date` type. 
-It's up to you to decide whether you want a `TypeConverter` or annotate fields with `@Retained`. Normally you would prefer `@Retianed` for codes that you control and `TypeConverter` for other types that you cannot modify(eg: types from another library ).
+Using converters do incur a tiny performance impact as the converter has to be instantiated before the type can be properly serialized(Only once through reflection). If you want something faster, take a look at `@TransformationTemplate`
 
 @TransformationTemplate
 ----------------------
 `@TransformationTemplate` allows you to support arbitrary types. This is the zero performance impact alternative to `TypeConverter`. To understand how this works, here's the what the class `ParcelerSupport` actually looks like:
 
 ```java
+@SuppressWarnings("unused")
 @TransformationTemplate(
-		save = "{{bundle}}.putParcelable(\"{{fieldName}}\", org.parceler.Parcels.wrap({{fieldName}}))",
-		restore = "{{fieldName}} = org.parceler.Parcels.unwrap({{bundle}}.getParcelable(\"{{fieldName}}\"))",
-		filters = @TypeFilter(type=@TypeConstraint(type = Parcel.class)),
-		execution = Execution.BEFORE)
+		save = @StatementTemplate("{{bundle}}.putParcelable({{keyName}}, org.parceler.Parcels.wrap(" +
+				                          "com.sora.util.akatsuki.parceler.ParcelerSupport.resolveInterfaceClass(" +
+				                          "{{fieldName}}), {{fieldName}}))"),
+		restore = @StatementTemplate(type = Type.ASSIGNMENT,
+				                     value = "org.parceler.Parcels.unwrap({{bundle}}.getParcelable({{keyName}}))",
+				                     variable = "{{fieldName}}"),
+		filters = {@TypeFilter(type = @TypeConstraint(type = Parcel.class)),
+				   @TypeFilter(type = @TypeConstraint(type = List.class, bound = Bound.EXTENDS),
+						       parameters = @TypeConstraint(type = Parcel.class)),
+				   @TypeFilter(type = @TypeConstraint(type = Set.class, bound = Bound.EXTENDS),
+				               parameters = @TypeConstraint(type = Parcel.class)),
+				   @TypeFilter(type = @TypeConstraint(type = Map.class, bound = Bound.EXTENDS),
+				               parameters = @TypeConstraint(type = Parcel.class))
+		          }
+		)
+//@formatter:on
 public class ParcelerSupport {
-    // dummy class, any class in the project will work
+
+	public static Class<?> resolveInterfaceClass(Object input) {
+		if (input instanceof List) {
+			return List.class;
+		} else if (input instanceof Set) {
+			return Set.class;
+		} else if (input instanceof Map) {
+			return Map.class;
+		}
+		return input.getClass();
+	}
+
 }
+
 ```
  [Parceler](https://github.com/johncarl81/parceler) annotated beans need `Parcels.wrap()` and `Parcels.unwrap()` before the object becomes usable. In the example above, we simply create a code template that includes the custom logic for wrapping and unwrapping Parceler objects.
 Akatsuki uses [mustache](https://mustache.github.io/) to convert the template into code that gets emitted into the generated source file. Everything is done in compile time so there will be no runtime cost. The `@TransformationTemplate` annotation has a retention of `RetentionPolicy.CLASS` so that it has no effect in runtime while other libraries using the annotation could still retain the template. For more information on how to write Transformation templates, the [javadoc]() contains examples and docs for all methods in the annotation.
@@ -316,6 +345,47 @@ Akatsuki uses [mustache](https://mustache.github.io/) to convert the template in
 Due to a limitation of APT, if the template is located in another library, you have to include the class that is annotated with `@TransformationTemplate`  with `@IncludeClasses(TheClass.class)`, see the [Parceler support section ](#parceler) for more info.
 
 **Warning: `@TransformationTemplate` does not do any validation on the templates, however,  syntax errors does prevent your project from compiling which can save you from debugging heedlessly.**
+
+Low level APIs
+----------
+<a name="nested-retain"></a>Because `Bundle` is just a type safe container for `Parcel`,  Akatsuki also exposes a few low level APIs that allow you to work with Bundles and instances directly:
+
+```java
+// below are just examples, not recommended for general use
+// you can have some bean
+static class MyStuff{
+	@Retained int foo;
+	@Retained String bar;
+	// your getters/setters etc
+}
+
+// serialize your bean into a Bundle
+MyStuff stuff = new MyStuff();
+Bundle bundle = Akatsuki.serialize(stuff);
+
+
+// restore your bean from the Bundle
+MyStuff stuff = Akatsuki.deserialize(new MyStuff(), bundle);
+```
+**Though this kind of usage is discouraged**. For general serialization, please make your Type implement Parcelable(either manually or through 3rd libraries such as Parceler and ParcelablePlease)
+Now you might wonder if you can annotate `MyStuff` with `@Retained`. The answer is sort of, take a look at this example:
+    
+```java
+@Retained MyStuff foo; 
+@Retained int bar;
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+    // manually instantiate your custom type
+	foo = new MyStuff(/* some arguments*/); 
+	// bar is a supported type so no need to instantiate
+    Akatsuki.restore(this, savedInstanceState); 
+}
+```
+Because Akatsuki does not know how `MyStuff` is created, you will have to instantiate it manually **BEFORE** `Akatsuki.restore(Object, Bundle)` is called. 
+**Since annotating a java bean is discouraged, retaining a Type containing `@Retained` is also not recommended due to restrictions mentioned in the example.** 
 
 Opt-out
 -------
@@ -359,15 +429,15 @@ compileOptions {
 The dependencies:
 ```groovy
 dependencies {
-	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.1'
-	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.1'
+	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.2'
+	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.2'
 }
 ```
 Optional parceler support:
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.1@aar'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.2@aar'
 ```
-You can download the sample app [here](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.1/) if you want to test it out (nothing surprising though, just a very simple demo with a `Fragment` + `NumberPicker`/`EditText`).
+You can download the sample app [here](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/) if you want to test it out (nothing surprising though, just a very simple demo with a `Fragment` + `NumberPicker`/`EditText`).
 
 
 License
