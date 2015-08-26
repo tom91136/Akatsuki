@@ -1,31 +1,39 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical">
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Activity"
-        android:textAppearance="?android:textAppearanceMedium"/>
+        android:textAppearance="?android:textAppearanceMedium" />
 
     <EditText
         android:id="@+id/persisted"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="0.9"
         android:hint="This text field will be retained, type something here and rotate the screen. (Yes, EditText does it for you. But just to demonstrate, I set the value to the @Retained one anyway)"
-        android:padding="16dp"/>
+        android:padding="16dp" />
 
 
     <fragment
-        android:id="@+id/fragment"
+        android:id="@+id/chooser_sample"
         android:name="com.sora.util.akatsuki.app.MainActivityFragment"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
         android:layout_weight="1"
-        tools:layout="@layout/fragment_main"/>
+        android:layout_height="0dp"
+        tools:layout="@layout/fragment_main" />
+
+    <fragment
+        android:id="@+id/serialize_sample"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.2"
+        tools:layout="@layout/fragment_serialize_example"
+        android:name="com.sora.util.akatsuki.app.SerializeExampleFragment" />
 
 
 </LinearLayout>
