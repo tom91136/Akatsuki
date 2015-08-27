@@ -42,9 +42,7 @@ Annotate the fields you want to persist, Akatsuki takes care of the rest.
 For documentation and additional information see [the wiki](https://github.com/tom91136/Akatsuki/wiki)
 
 ## Download
-
-**IMPORTANT The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
-
+**The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
 Gradle dependencies:
 ```groovy
 dependencies {
