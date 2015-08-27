@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     }
 }
 ```
+<sup>1</sup>Reflection is used only once to locate the generated classes.
 For documentation and additional information see [the wiki](https://github.com/tom91136/Akatsuki/wiki)
 
 ## Download
