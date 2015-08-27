@@ -45,8 +45,10 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -111,19 +113,20 @@ public abstract class CodeGenerationTestBase extends TestBase {
 		return environment;
 	}
 
-	protected void testGenericType(Class<?>... input) {
+	protected void testGenericType(String parameterName, Class<?>... input) {
 		// we could make Field support <T> but that's too much effort for this
 		// single use case
-		final TypeVariableName typeVariable = TypeVariableName.get("T", input);
-		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
-				.fields(field(TypeVariableName.get("T"), "t", Retained.class))
-				.builderTransformer((b, s) -> b.addTypeVariable(typeVariable));
 
+		String fieldName = parameterName.toLowerCase(Locale.ENGLISH);
+		final TypeVariableName typeVariable = TypeVariableName.get(parameterName, input);
+		FieldSpec field = field(TypeVariableName.get(parameterName), fieldName, Retained.class);
+		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
+				.fields(field).builderTransformer((b, s) -> b.addTypeVariable(typeVariable));
 		final TestEnvironment environment = new TestEnvironment(this, source);
 		environment.invokeSaveAndRestore();
+		environment.testSaveRestoreInvocation(name -> true, TestEnvironment.CLASS,
+				Collections.singletonList(new Field(input[0], fieldName)));
 
-		verify(environment.mockedBundle, times(1)).putParcelable(eq("t"), any());
-		verify(environment.mockedBundle, times(1)).getParcelable(eq("t"));
 	}
 
 	protected void testSimpleTypes(Predicate<String> namePredicate, FieldFilter accessorTypeFilter,

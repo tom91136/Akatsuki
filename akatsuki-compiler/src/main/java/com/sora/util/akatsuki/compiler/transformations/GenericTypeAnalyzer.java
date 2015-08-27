@@ -60,7 +60,7 @@ public class GenericTypeAnalyzer
 		if (resolvedMirror == null || transformation == null)
 			throw new UnknownTypeException(context.field);
 
-		return cascade(transformation.target(resolvedMirror).cast(TypeCastStrategy.AUTO_CAST),
+		return cascade(transformation.target(resolvedMirror).cast(TypeCastStrategy.NO_CAST),
 				context, resolvedMirror);
 	}
 }

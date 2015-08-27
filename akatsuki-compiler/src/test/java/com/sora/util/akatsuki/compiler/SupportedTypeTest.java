@@ -217,15 +217,22 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	}
 
 	@Test
-	public void testGenericType() {
-		testGenericType(Parcelable.class);
+	public void testGenericTypeOfT() {
+		for (Class<?> clazz : SUPPORTED_SIMPLE_CLASSES) {
+			testGenericType("T", clazz);
+		}
+	}
+
+	@Test
+	public void testGenericTypeOfSomethingLong() {
+		for (Class<?> clazz : SUPPORTED_SIMPLE_CLASSES) {
+			testGenericType("SomeVeryLongParameterNameThatMightBreak", clazz);
+		}
 	}
 
 	@Test
 	public void testIntersectionType() {
-		testGenericType(Parcelable.class, Serializable.class);
+		testGenericType("T", Parcelable.class, Serializable.class);
 	}
-
-
 
 }
