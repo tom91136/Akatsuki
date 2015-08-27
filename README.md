@@ -13,7 +13,7 @@ The library automatically generates source files through JSR269 to ensure almost
 - Generic parameters are supported
 - `TypeConverter` for custom types
 - Compatible with other parcel and binding libraries
-- 
+
 ```java
 public class MainActivity extends Activity {
 
