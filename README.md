@@ -44,16 +44,16 @@ For documentation and additional information see [the wiki](https://github.com/t
 Gradle dependencies:
 ```groovy
 dependencies {
-	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.2'
-	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.2'
+	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.3'
+	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.3'
 }
 ```
 Optional parceler support:
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.2@aar'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.3@aar'
 ```
 
-##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/)
+##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.3/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
 
 ## License
