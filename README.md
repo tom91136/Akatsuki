@@ -8,13 +8,12 @@
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
 - Retain state with `@Retained`
-- Generic parameters are supported
-- Inheritance is supported
 - All types supported by `Bundle` can be `@Retained`
-- Compatible with other parcel and binding libraries
+- Inheritance is supported
+- Generic parameters are supported
 - `TypeConverter` for custom types
-- Ubiquitous usage
-
+- Compatible with other parcel and binding libraries
+- 
 ```java
 public class MainActivity extends Activity {
 
