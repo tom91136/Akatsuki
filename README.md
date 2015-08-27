@@ -12,7 +12,8 @@ The library automatically generates source files through JSR269 to ensure almost
 - Inheritance is supported
 - All types supported by `Bundle` can be `@Retained`
 - Compatible with other parcel and binding libraries
-- `TypeConverter`s for custom types
+- `TypeConverter` for custom types
+- Ubiquitous usage
 
 ```java
 public class MainActivity extends Activity {
