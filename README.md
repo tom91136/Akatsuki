@@ -6,12 +6,15 @@
 
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
-- Retain state with `@Retained`
-- All types supported by `Bundle` can be `@Retained`
-- Inheritance is supported
-- Generic parameters are supported
-- `TypeConverter` for custom types
-- Compatible with other parcel and binding libraries
+
+ - Retain state with `@Retained`
+ - All types supported by `Bundle` can be `@Retained`
+ - Inheritance is supported
+ - Generic parameters are supported
+ - `TypeConverter` and `@TransformationTemplate` for custom types
+ - Compatible with other parcel and binding libraries
+
+Example usage:
 
 ```java
 public class MainActivity extends Activity {
@@ -41,6 +44,7 @@ For documentation and additional information see [the wiki](https://github.com/t
 
 ## Download
 **The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
+
 Gradle dependencies:
 ```groovy
 dependencies {
@@ -52,6 +56,20 @@ Optional parceler support:
 ```groovy
 compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.3@aar'
 ```
+
+
+Please pay special attention to the build script:
+
+```groovy
+// your source/target compatibility remains 1_7, do NOT change it to 1_8
+compileOptions {
+	sourceCompatibility JavaVersion.VERSION_1_7
+	targetCompatibility JavaVersion.VERSION_1_7
+}
+// exception: do keep 1_8 if you happen to be using retrolambda
+```
+
+
 
 ##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.3/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
