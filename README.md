@@ -43,7 +43,8 @@ For documentation and additional information see [the wiki](https://github.com/t
 
 ## Download
 
-**IMPORTANT The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check) **
+**IMPORTANT The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
+
 Gradle dependencies:
 ```groovy
 dependencies {
@@ -55,10 +56,10 @@ Optional parceler support:
 ```groovy
 compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.2@aar'
 ```
-Sample app(.apk) [here](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/)
+#### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
 
-### License
+## License
 
     Copyright 2015 WEI CHEN LIN
 
