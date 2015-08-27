@@ -37,8 +37,6 @@ public class MainActivity extends Activity {
     }
 }
 ```
-Annotate the fields you want to persist, Akatsuki takes care of the rest.
-
 For documentation and additional information see [the wiki](https://github.com/tom91136/Akatsuki/wiki)
 
 ## Download
