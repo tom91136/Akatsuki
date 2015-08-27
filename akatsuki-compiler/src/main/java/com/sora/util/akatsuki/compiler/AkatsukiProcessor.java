@@ -10,12 +10,14 @@ import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TypeConverter;
 import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
 import com.sora.util.akatsuki.compiler.Utils.Defaults;
+import com.sora.util.akatsuki.compiler.Utils.Values;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +27,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedOptions;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -40,11 +43,13 @@ import javax.tools.Diagnostic.Kind;
 		"com.sora.util.akatsuki.TransformationTemplate", "com.sora.util.akatsuki.IncludeClasses",
 		"com.sora.util.akatsuki.DeclaredConverter", "com.sora.util.akatsuki.TypeConstraint",
 		"com.sora.util.akatsuki.RetainConfig" })
+@SupportedOptions({ "akatsuki.loggingLevel", "akatsuki.optimisation", "akatsuki.restorePolicy" })
 public class AkatsukiProcessor extends AbstractProcessor implements ProcessorContext {
 
 	private static RetainConfig config;
 
 	private ProcessorUtils utils;
+	private Map<String, String> options;
 
 	public static RetainConfig retainConfig() {
 		return config;
@@ -55,6 +60,11 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		super.init(processingEnv);
 		this.utils = new ProcessorUtils(processingEnv.getTypeUtils(),
 				processingEnv.getElementUtils());
+		Map<String, String> options = processingEnv.getOptions();
+		if (options != null && !options.isEmpty()) {
+			this.options = options;
+			messager().printMessage(Kind.OTHER, "option received:" + options);
+		}
 	}
 
 	@Override
@@ -62,14 +72,23 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		// NOTE: process gets called multiple times if any other annotation
 		// processor exists
 
-		final List<RetainConfig> configs = findAnnotations(
-				roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
-		if (configs.size() > 1) {
-			messager().printMessage(Kind.ERROR,
-					"Multiple @RetainConfig found, you can only have one config. Found:"
-							+ configs.toString());
+		// compiler options override @RetainConfig
+		if (options == null) {
+			final List<RetainConfig> configs = findAnnotations(
+					roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
+			if (configs.size() > 1) {
+				messager().printMessage(Kind.ERROR,
+						"Multiple @RetainConfig found, you can only have one config. Found:"
+								+ configs.toString());
+			}
+			config = configs.isEmpty() ? Defaults.of(RetainConfig.class) : configs.get(0);
+		} else {
+			config = Values.of(RetainConfig.class, Defaults.of(RetainConfig.class), options,
+					methodName -> "akatsuki." + methodName);
 		}
-		config = configs.isEmpty() ? Defaults.of(RetainConfig.class) : configs.get(0);
+
+		// config is ready, we can log now
+		Log.verbose(this, retainConfig().toString());
 
 		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
 		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
@@ -81,9 +100,8 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		}
 
 		if (map.isEmpty()) {
-			if (retainConfig().loggingLevel() == LoggingLevel.VERBOSE)
-				messager().printMessage(Kind.OTHER,
-						"Round has no elements, classes possibly originated from another annotation processor. ");
+			Log.verbose(this,
+					"Round has no elements, classes possibly originated from another annotation processor");
 			return false;
 		}
 

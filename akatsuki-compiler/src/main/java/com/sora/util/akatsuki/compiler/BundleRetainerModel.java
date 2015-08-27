@@ -121,8 +121,7 @@ public class BundleRetainerModel {
 							.getClassFromAnnotationMethod(retained::converter);
 					model.fields
 							.add(new ProcessorElement(retained, (VariableElement) element, type));
-					if (AkatsukiProcessor.retainConfig().loggingLevel() == LoggingLevel.VERBOSE)
-						context.messager().printMessage(Kind.NOTE, "Element marked", element);
+					Log.verbose(context, "Element marked", element);
 				}
 			}
 			processed++;

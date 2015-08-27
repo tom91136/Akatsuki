@@ -8,6 +8,7 @@ import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
 import com.sora.util.akatsuki.Retained.RestorePolicy;
 import com.sora.util.akatsuki.compiler.AkatsukiProcessor;
 import com.sora.util.akatsuki.compiler.BundleContext;
+import com.sora.util.akatsuki.compiler.Log;
 import com.sora.util.akatsuki.compiler.MustacheUtils;
 import com.sora.util.akatsuki.compiler.ProcessorContext;
 import com.sora.util.akatsuki.compiler.ProcessorElement;
@@ -119,11 +120,9 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	@SuppressWarnings("unchecked")
 	public A transform(BundleContext bundleContext, ProcessorElement<?> element,
 			InvocationType type) throws UnknownTypeException {
-		if (AkatsukiProcessor.retainConfig().loggingLevel() == LoggingLevel.VERBOSE) {
-			context.messager().printMessage(Kind.OTHER,
-					type + ">" + cascadeDepth + Strings.repeat(" ", cascadeDepth) + "`Cascade:"
-							+ toString() + " -> " + element.toString() + " with " + bundleContext);
-		}
+		Log.verbose(context,
+				type + ">" + cascadeDepth + Strings.repeat(" ", cascadeDepth) + "\\Cascade:"
+						+ toString() + " -> " + element.toString() + " with " + bundleContext);
 		return createAnalysis(
 				new InvocationContext<>(bundleContext, (ProcessorElement<T>) element, type));
 	}

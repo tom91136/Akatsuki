@@ -18,38 +18,26 @@ package com.sora.util.akatsuki.compiler;
 
 import android.os.Bundle;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
-import com.sora.util.akatsuki.DeclaredConverter;
 import com.sora.util.akatsuki.Internal;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.RetainerCache;
-import com.sora.util.akatsuki.TransformationTemplate;
-import com.sora.util.akatsuki.TransformationTemplate.Execution;
-import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
-import com.sora.util.akatsuki.TypeConstraint;
-import com.sora.util.akatsuki.TypeConstraint.Bound;
-import com.sora.util.akatsuki.TypeConverter;
-import com.sora.util.akatsuki.TypeFilter;
 import com.sora.util.akatsuki.compiler.CodeGenerationTestBase.TestEnvironment.FieldFilter;
 import com.sora.util.akatsuki.compiler.CompilerUtils.Result;
 import com.sora.util.akatsuki.compiler.Field.RetainedField;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.FieldSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -57,7 +45,6 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -85,8 +72,6 @@ public abstract class CodeGenerationTestBase extends TestBase {
 	protected <T> Class<?> toArrayClass(Class<T> clazz) {
 		return Array.newInstance(clazz, 0).getClass();
 	}
-
-
 
 	protected TestEnvironment testFieldHiding(RetainedField first, RetainedField second) {
 		final JavaSource superClass = new JavaSource(TEST_PACKAGE, generateClassName(),
@@ -199,7 +184,8 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			this.sources = sources;
 			try {
 				result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
-						base.processors(), sources.stream().map(JavaSource::generateFileObject)
+						base.processors(), ImmutableList.of("-Aakatsuki.loggingLevel=VERBOSE"),
+						sources.stream().map(JavaSource::generateFileObject)
 								.toArray(JavaFileObject[]::new));
 				if (result.compilationException != null)
 					throw result.compilationException;

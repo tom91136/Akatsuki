@@ -2,7 +2,6 @@ package com.sora.util.akatsuki.compiler;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.sora.util.akatsuki.compiler.InMemoryJavaFileManager.InMemoryJavaFileObject;
 
 import java.io.IOException;
@@ -26,7 +25,7 @@ import static com.google.common.base.Charsets.UTF_8;
 public class CompilerUtils {
 
 	static Result compile(ClassLoader loader, Iterable<Processor> processors,
-			JavaFileObject... objects) {
+			Iterable<String> options, JavaFileObject... objects) {
 		// we need all this because we got a annotation processor, the generated
 		// class has to go into memory too
 		final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -34,9 +33,11 @@ public class CompilerUtils {
 		InMemoryJavaFileManager fileManager = new InMemoryJavaFileManager(
 				compiler.getStandardFileManager(diagnosticCollector, Locale.getDefault(), UTF_8),
 				loader);
-		CompilationTask task = compiler.getTask(null, fileManager, diagnosticCollector, null,
-				ImmutableSet.of(), Arrays.asList(objects));
+		CompilationTask task = compiler.getTask(null, fileManager, diagnosticCollector, options,
+				null, Arrays.asList(objects));
 		task.setProcessors(processors);
+
+
 		Exception exception = null;
 		try {
 			if (!task.call())
@@ -46,7 +47,6 @@ public class CompilerUtils {
 		}
 
 		System.out.println(printVertically(diagnosticCollector.getDiagnostics()));
-
 
 		return new Result(fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT),
 				fileManager.getOutputFiles(),
