@@ -53,8 +53,7 @@ Optional parceler support:
 ```groovy
 compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.2@aar'
 ```
-#### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/)
-Showcasing (`Fragment` + `NumberPicker`/`EditText`)
+#### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.2/) Showcasing (`Fragment` + `NumberPicker`/`EditText`)
 
 ## License
 
