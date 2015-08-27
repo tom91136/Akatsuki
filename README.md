@@ -1,4 +1,3 @@
-![Logo](https://github.com/tom91136/Akatsuki/blob/master/akatsuki_logo.png)
 # Akatsuki
 [![Join the chat at https://gitter.im/tom91136/Akatsuki](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tom91136/Akatsuki?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
