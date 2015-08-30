@@ -36,6 +36,12 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 	}
 
 	@Test(expected = RuntimeException.class)
+	public void testClassConstraintOnInterfaces() {
+		// you can't retain an interface, it has no fields
+		testTransformationTemplate(Bound.EXACTLY, StringObject.class, RandomInterface.class);
+	}
+
+	@Test(expected = RuntimeException.class)
 	public void testInvalidClassConstraint() {
 		// should not match anything and fail to compile
 		testTransformationTemplate(Bound.EXACTLY, StringObject.class, BaseStringObject.class);
@@ -47,8 +53,18 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 	}
 
 	@Test
+	public void testSubClassConstraintOnInterfaces() {
+		testTransformationTemplate(Bound.EXTENDS, StringObject.class, RandomInterface.class);
+	}
+
+	@Test
 	public void testSuperClassConstraint() {
 		testTransformationTemplate(Bound.SUPER, StringObject.class, BaseStringObject.class);
+	}
+
+	@Test
+	public void testSuperClassConstraintOnInterfaces() {
+		testTransformationTemplate(Bound.SUPER, StringObject.class, BaseRandomInterface.class);
 	}
 
 	@Test
@@ -71,25 +87,26 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 
 	}
 
-
 	// leave unimplemented for now
-//	@Test
-//	public void testCompoundType() {
-//		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-//				Modifier.PUBLIC).fields(new RetainedField(List.class, "a",
-//						"new ArrayList<>()", StringObject.class)
-//								.createFieldSpec());
-//		testClass.builderTransformer(
-//				(builder, source) -> builder.addAnnotation(createTransformationTemplate(
-//						Bound.EXACTLY, StringObject.class, RandomAnnotation.class)));
-//
-//		final TestEnvironment environment = new TestEnvironment(this, testClass);
-//
-//		environment.invokeSaveAndRestore();
-//		environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
-//				Collections.singleton(new RetainedField(List.class, "a", StringObject.class)));
-//
-//	}
+	// @Test
+	// public void testCompoundType() {
+	// final JavaSource testClass = new JavaSource(TEST_PACKAGE,
+	// generateClassName(),
+	// Modifier.PUBLIC).fields(new RetainedField(List.class, "a",
+	// "new ArrayList<>()", StringObject.class)
+	// .createFieldSpec());
+	// testClass.builderTransformer(
+	// (builder, source) -> builder.addAnnotation(createTransformationTemplate(
+	// Bound.EXACTLY, StringObject.class, RandomAnnotation.class)));
+	//
+	// final TestEnvironment environment = new TestEnvironment(this, testClass);
+	//
+	// environment.invokeSaveAndRestore();
+	// environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
+	// Collections.singleton(new RetainedField(List.class, "a",
+	// StringObject.class)));
+	//
+	// }
 
 	@Test
 	public void testTypeConverter() {
@@ -211,8 +228,16 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 
 	}
 
+	public interface BaseRandomInterface {
+
+	}
+
+	public interface RandomInterface extends BaseRandomInterface {
+
+	}
+
 	@RandomAnnotation
-	public static class StringObject extends BaseStringObject {
+	public static class StringObject extends BaseStringObject implements RandomInterface {
 		private String actualString;
 
 		public StringObject(String actualString) {

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
@@ -220,17 +221,18 @@ class TypeResolvingContext {
 				return true;
 			break;
 		case EXTENDS:
-			if (context.utils().isAssignable(type, mirror, true))
+			boolean clazz = type.asElement().getKind() == ElementKind.CLASS;
+			// classes and interfaces have inverted schematics for isAssignable
+			// for some reason...
+			if (context.utils().isAssignable(clazz ? type : mirror, clazz ? mirror : type, true))
 				return true;
 			break;
+
 		case SUPER:
-			// traverse class hierarchy
-			TypeMirror superType = mirror;
-			while (superType != null && superType.getKind() != TypeKind.NONE) {
-				if (context.utils().isSameType(type, superType, true))
-					return true;
-				superType = ((TypeElement) context.types().asElement(superType)).getSuperclass();
-			}
+			// swap argument because we are checking whether the mirror is a
+			// super type of type
+			if (context.utils().isAssignable(mirror, type, true))
+				return true;
 			break;
 		}
 		return false;
