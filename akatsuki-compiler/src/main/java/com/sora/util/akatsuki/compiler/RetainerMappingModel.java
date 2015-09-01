@@ -36,7 +36,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor8;
 
-public class RetainerMappingModel extends SourceModel {
+public class RetainerMappingModel extends GenerationTargetModel {
 
 	protected RetainerMappingModel(ProcessorContext context) {
 		super(context);

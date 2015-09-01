@@ -44,14 +44,13 @@ import javax.tools.Diagnostic.Kind;
 /**
  * Project: Akatsuki Created by tom91136 on 11/07/2015.
  */
-public class BundleRetainerModel {
+public class BundleRetainerModel extends GenerationTargetModel {
 
 	private static final Set<Modifier> DISALLOWED_MODIFIERS = EnumSet.of(Modifier.FINAL,
 			Modifier.STATIC, Modifier.PRIVATE);
 
 	private final String generatedClassName;
 	private final String generatedFqpn;
-	private final ProcessorContext context;
 	private final TypeElement enclosingClass;
 	private BundleRetainerModel superModel;
 
@@ -62,7 +61,7 @@ public class BundleRetainerModel {
 	}
 
 	private BundleRetainerModel(ProcessorContext context, TypeElement enclosingClass) {
-		this.context = context;
+		super(context);
 		this.enclosingClass = enclosingClass;
 		this.generatedFqpn = context.elements().getPackageOf(enclosingClass).toString();
 		this.generatedClassName = createGeneratedClassName();
