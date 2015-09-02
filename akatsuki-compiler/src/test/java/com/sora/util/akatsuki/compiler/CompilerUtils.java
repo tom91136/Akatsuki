@@ -7,7 +7,10 @@ import com.sora.util.akatsuki.compiler.InMemoryJavaFileManager.InMemoryJavaFileO
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -57,7 +60,7 @@ public class CompilerUtils {
 	}
 
 	static String printVertically(List<?> collection) {
-		return Joiner.on("\n\t>").join(collection);
+		return Joiner.on("\n\t>").join(new ArrayList<>(collection));
 	}
 
 	static String printAllSources(List<JavaFileObject> sources, String linePrefix) {
