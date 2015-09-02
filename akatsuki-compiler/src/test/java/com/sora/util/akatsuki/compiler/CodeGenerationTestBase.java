@@ -169,6 +169,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 	public static class TestEnvironment {
 
 		private final List<JavaSource> sources;
+		public static final Pattern NEW_LINE_PATTERN = Pattern.compile("\\r?\\n");
 
 		public enum Accessor {
 			PUT, GET
@@ -193,10 +194,10 @@ public abstract class CodeGenerationTestBase extends TestBase {
 				if (result.compilationException != null)
 					throw result.compilationException;
 			} catch (Exception e) {
-				throw new RuntimeException("Compilation was unsuccessful." + printAllSources(), e);
+				throw new RuntimeException("Compilation was unsuccessful." + printReport(), e);
 			}
 
-			System.out.println(printAllSources());
+			System.out.println(printReport());
 
 			final Class<?> testClass;
 			try {
@@ -218,7 +219,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			} catch (Exception e) {
 				throw new RuntimeException(
 						"Compilation was successful but an error occurred while setting up the test environment."
-								+ printAllSources(),
+								+ printReport(),
 						e);
 			}
 		}
@@ -231,7 +232,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			try {
 				retainer.save(mockedSource, mockedBundle);
 			} catch (Exception e) {
-				throw new AssertionError("Unable to invoke save. " + printAllSources(), e);
+				throw new AssertionError("Unable to invoke save. " + printReport(), e);
 			}
 
 		}
@@ -240,7 +241,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			try {
 				retainer.restore(mockedSource, mockedBundle);
 			} catch (Exception e) {
-				throw new AssertionError("Unable to invoke restore. " + printAllSources(), e);
+				throw new AssertionError("Unable to invoke restore. " + printReport(), e);
 			}
 		}
 
@@ -249,25 +250,26 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			invokeRestore();
 		}
 
-		public String printAllSources() {
-			StringBuilder builder = new StringBuilder("\nCompiler Input:\n");
-			final Pattern newLinePattern = Pattern.compile("\\r?\\n");
+		public String printReport() {
+			StringBuilder builder = new StringBuilder("\n=======Test status report=======");
+			builder.append("\n\u2022Compiler Input:\n");
 			for (JavaSource source : sources) {
-				builder.append("Fully qualified name: ").append(source.fqcn()).append("\n");
+				builder.append("\n\tFully qualified name: ").append(source.fqcn()).append("\n");
 				final String sourceCode = source.generateSource();
-				final String[] lines = newLinePattern.split(sourceCode);
+				final String[] lines = NEW_LINE_PATTERN.split(sourceCode);
 				String format = String.format("%%0%dd", String.valueOf(lines.length).length());
 				for (int i = 0; i < lines.length; i++) {
-					builder.append(String.format(format, i + 1)).append('.').append(lines[i]);
+					builder.append("\t\t").append(String.format(format, i + 1)).append('.')
+							.append(lines[i]);
 					if (i != lines.length - 1)
 						builder.append("\n");
 				}
-				builder.append("\n===================\n");
 			}
-			if (result == null) {
-				builder.append("No sources generated.");
+			builder.append("\n\u2022Annotation processor output:");
+			if (result == null || result.sources.isEmpty()) {
+				builder.append("\n\tNo sources generated.");
 			} else {
-				builder.append(result.printGeneratedSources());
+				builder.append(result.printGeneratedSources("\t"));
 			}
 			return builder.toString();
 		}
@@ -340,11 +342,11 @@ public abstract class CodeGenerationTestBase extends TestBase {
 					return captor.getValue();
 				} catch (Exception e) {
 					throw new AssertionError("Invocation of method " + method.getName()
-							+ " on mocked object " + "failed." + printAllSources(), e);
+							+ " on mocked object " + "failed." + printReport(), e);
 				}
 			}
 			throw new RuntimeException(
-					"No invocation caught for field: " + field.toString() + printAllSources());
+					"No invocation caught for field: " + field.toString() + printReport());
 		}
 
 		private void executeTestCaseWithFields(Set<? extends Field> fieldList,
@@ -370,9 +372,9 @@ public abstract class CodeGenerationTestBase extends TestBase {
 
 				// more than one match, we should have exactly one match
 				if (matchingField.size() > 1) {
-					throw new AssertionError(method.toString() + " matches multiple field "
-							+ fieldList + ", this is ambiguous and should not happen."
-							+ printAllSources());
+					throw new AssertionError(
+							method.toString() + " matches multiple field " + fieldList
+									+ ", this is ambiguous and should not happen." + printReport());
 				}
 				final Field field = matchingField.get(0);
 				try {
@@ -386,13 +388,13 @@ public abstract class CodeGenerationTestBase extends TestBase {
 
 				} catch (Exception e) {
 					throw new AssertionError("Invocation of method " + method.getName()
-							+ " on mocked object " + "failed." + printAllSources(), e);
+							+ " on mocked object " + "failed." + printReport(), e);
 				}
 			}
 			if (!allFields.isEmpty())
 				throw new RuntimeException("While testing for accessor:" + accessor
 						+ " some fields are left untested because a suitable accessor cannot be found: "
-						+ allFields + printAllSources());
+						+ allFields + printReport());
 		}
 
 		private boolean filterTypes(Method method, Accessor accessor,

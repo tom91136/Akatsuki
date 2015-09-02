@@ -37,7 +37,6 @@ public class CompilerUtils {
 				null, Arrays.asList(objects));
 		task.setProcessors(processors);
 
-
 		Exception exception = null;
 		try {
 			if (!task.call())
@@ -61,29 +60,31 @@ public class CompilerUtils {
 		return Joiner.on("\n\t>").join(collection);
 	}
 
-	static String printAllSources(List<JavaFileObject> sources) {
+	static String printAllSources(List<JavaFileObject> sources, String linePrefix) {
 		final List<InMemoryJavaFileObject> sourceFiles = sources.stream()
 				.filter(f -> f instanceof InMemoryJavaFileObject)
 				.map(f -> (InMemoryJavaFileObject) f).filter(InMemoryJavaFileObject::isSource)
 				.collect(Collectors.toList());
 		final StringWriter writer = new StringWriter();
 
-		writer.append("\nAll files:");
+		writer.append("\n").append(linePrefix).append("Overview:");
 		for (JavaFileObject fileObject : sources) {
-			writer.append("\n\t").append(fileObject.toUri().toString());
+			writer.append("\n").append(linePrefix).append("\t")
+					.append(fileObject.toUri().toString());
 		}
 
-		writer.append("\nGenerated source(s):\n");
+		writer.append("\n").append(linePrefix).append("Generated source(s):\n");
 		for (InMemoryJavaFileObject file : sourceFiles) {
-			writer.append("File:").append(file.toUri().toString()).append("\n");
+			writer.append(linePrefix).append("File: ").append(file.toUri().toString()).append("\n");
 			try {
-				file.printSource(writer);
+				file.printSource(writer, linePrefix+"\t");
 			} catch (IOException e) {
 				// what else can we do?
-				writer.append("An exception occurred while trying to print the source:\n");
+				writer.append(linePrefix)
+						.append("An exception occurred while trying to print the " + "source:\n");
 				e.printStackTrace(new PrintWriter(writer));
 			}
-			writer.append("\n===============================\n");
+			writer.append("\n").append(linePrefix).append("===============================\n");
 		}
 
 		return writer.toString();
@@ -102,8 +103,8 @@ public class CompilerUtils {
 			this.compilationException = compilationException;
 		}
 
-		public String printGeneratedSources() {
-			return CompilerUtils.printAllSources(sources);
+		public String printGeneratedSources(String linePrefix) {
+			return CompilerUtils.printAllSources(sources, linePrefix);
 		}
 	}
 

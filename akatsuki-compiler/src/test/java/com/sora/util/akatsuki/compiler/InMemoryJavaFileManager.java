@@ -280,7 +280,7 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 			return kind.extension.equals(".java");
 		}
 
-		public void printSource(Writer writer) throws IOException {
+		public void printSource(Writer writer, String linePrefix) throws IOException {
 			if (!isSource())
 				throw new IllegalStateException(
 						"cannot print file " + toUri() + ", not a source file");
@@ -297,7 +297,8 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 			String format = String.format("%%0%dd", String.valueOf(lines.size()).length());
 			for (int i = 0; i < lines.size(); i++) {
 				// TODO bad performance, use something better than String.format
-				writer.append(String.format(format, i + 1)).append('.').append(lines.get(i));
+				writer.append(linePrefix).append(String.format(format, i + 1)).append('.')
+						.append(lines.get(i));
 				if (i != lines.size() - 1)
 					writer.append("\n");
 			}
