@@ -48,6 +48,7 @@ public class BundleRetainerModel extends GenerationTargetModel {
 		return generatedClassInfo;
 	}
 
+	@Override
 	public void writeSourceToFile(Filer filer) throws IOException {
 		String sourceName = "source";
 		String bundleName = "bundle";

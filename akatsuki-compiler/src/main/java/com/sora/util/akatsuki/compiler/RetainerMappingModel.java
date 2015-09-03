@@ -38,15 +38,22 @@ import com.squareup.javapoet.TypeSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 
-public class RetainerMappingModel extends BaseModel {
+public class RetainerMappingModel extends BaseModel implements CodeGenerator {
 
-	protected RetainerMappingModel(ProcessorContext context) {
+	private final List<BundleRetainerModel> models;
+	private final Collection<? extends Element> rootElements;
+	private final Optimisation optimisation;
+
+	protected RetainerMappingModel(ProcessorContext context, List<BundleRetainerModel> models,
+			Collection<? extends Element> rootElements, Optimisation optimisation) {
 		super(context);
+		this.models = models;
+		this.rootElements = rootElements;
+		this.optimisation = optimisation;
 	}
 
-	public void writeSourceToFile(Filer filer, List<BundleRetainerModel> models,
-			Collection<? extends Element> rootElements, Optimisation optimisation)
-					throws IOException {
+	@Override
+	public void writeSourceToFile(Filer filer) throws IOException {
 
 		final Builder typeBuilder = TypeSpec.classBuilder(Akatsuki.RETAINER_CACHE_NAME)
 				.addModifiers(Modifier.PUBLIC).addSuperinterface(RetainerCache.class);

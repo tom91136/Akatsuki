@@ -108,20 +108,20 @@ public class AkatsukiProcessor extends AbstractProcessor {
 
 		List<BundleRetainerModel> retainerModels = model.forEachClassSerial((c, t) -> {
 			BundleRetainerModel retainerModel = new BundleRetainerModel(context, c, t, templates,
-					                                                           declaredConverters);
+					declaredConverters);
 			retainerModel.writeSourceToFile(processingEnv.getFiler());
 			return retainerModel;
-		}, (e, m) -> {
-			context.messager().printMessage(Kind.ERROR, "An error occurred while writing file: " +
-					                                            m.asClassInfo());
+		} , (e, m) -> {
+			context.messager().printMessage(Kind.ERROR,
+					"An error occurred while writing file: " + m.asClassInfo());
 			throw new RuntimeException(e);
 		});
 
 		if (retainConfig().optimisation() != Optimisation.NONE && retainerModels != null) {
 
 			try {
-				new RetainerMappingModel(context).writeSourceToFile(processingEnv.getFiler(),
-						retainerModels, roundEnv.getRootElements(), retainConfig().optimisation());
+				new RetainerMappingModel(context, retainerModels, roundEnv.getRootElements(),
+						retainConfig().optimisation()).writeSourceToFile(processingEnv.getFiler());
 			} catch (IOException e) {
 				context.messager().printMessage(Kind.ERROR,
 						"An error occurred while writing cache class, "
