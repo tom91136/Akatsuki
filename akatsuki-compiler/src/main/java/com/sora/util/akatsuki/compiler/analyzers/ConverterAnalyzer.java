@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.Akatsuki;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
-
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +22,10 @@ import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
+
+import com.sora.util.akatsuki.Akatsuki;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
 
 public class ConverterAnalyzer
 		extends CascadingTypeAnalyzer<ConverterAnalyzer, TypeMirror, Analysis> {

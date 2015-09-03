@@ -1,10 +1,4 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.compiler.AndroidTypes;
-import com.sora.util.akatsuki.compiler.ProcessorElement;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
-import com.sora.util.akatsuki.compiler.transformations.PrimitiveTypeAnalyzer.Type;
-import com.squareup.javapoet.CodeBlock;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +10,12 @@ import java.util.function.Function;
 
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
+
+import com.sora.util.akatsuki.compiler.AndroidTypes;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
+import com.sora.util.akatsuki.compiler.analyzers.PrimitiveTypeAnalyzer.Type;
+import com.squareup.javapoet.CodeBlock;
 
 public class CollectionTypeAnalyzer
 		extends CascadingTypeAnalyzer<CollectionTypeAnalyzer, DeclaredType, Analysis> {
@@ -51,7 +51,7 @@ public class CollectionTypeAnalyzer
 			final TypeMirror mirror = arrayListType.get();
 			final Analysis analysis;
 
-			Function<ProcessorElement<?>, ProcessorElement<?>> ARRAY_LIST_WRAPPER = (e) -> {
+			Function<Element<?>, Element<?>> ARRAY_LIST_WRAPPER = (e) -> {
 				// if our list is not an ArrayList, wrap it in one
 				if (context.type == InvocationType.SAVE
 						&& !utils().isSameType(rawTypeMirror, true, utils().of(ArrayList.class))) {
@@ -124,7 +124,7 @@ public class CollectionTypeAnalyzer
 		}
 	}
 
-	private Optional<TypeMirror> getSupportedArrayListType(ProcessorElement<DeclaredType> field) {
+	private Optional<TypeMirror> getSupportedArrayListType(Element<DeclaredType> field) {
 		if (utils().isAssignable(field.refinedMirror(), utils().of(List.class), true)) {
 			final TypeMirror mirror = field.refinedMirror().getTypeArguments().get(0);
 

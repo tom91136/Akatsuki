@@ -1,11 +1,12 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.IntersectionType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
 
 public class GenericTypeAnalyzer
 		extends CascadingTypeAnalyzer<GenericTypeAnalyzer, TypeMirror, Analysis> {

@@ -16,9 +16,9 @@
 
 package com.sora.util.akatsuki.compiler;
 
-import com.sora.util.akatsuki.TypeFilter;
-
 import javax.lang.model.type.DeclaredType;
+
+import com.sora.util.akatsuki.TypeFilter;
 
 /**
  * Project: Akatsuki

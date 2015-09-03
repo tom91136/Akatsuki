@@ -1,17 +1,5 @@
 package com.sora.util.akatsuki.compiler;
 
-import com.google.auto.service.AutoService;
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
-import com.sora.util.akatsuki.DeclaredConverter;
-import com.sora.util.akatsuki.IncludeClasses;
-import com.sora.util.akatsuki.RetainConfig;
-import com.sora.util.akatsuki.RetainConfig.Optimisation;
-import com.sora.util.akatsuki.TransformationTemplate;
-import com.sora.util.akatsuki.TypeConverter;
-import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
-import com.sora.util.akatsuki.compiler.Utils.Defaults;
-import com.sora.util.akatsuki.compiler.Utils.Values;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -22,7 +10,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
@@ -33,9 +20,19 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
+
+import com.google.auto.service.AutoService;
+import com.sora.util.akatsuki.DeclaredConverter;
+import com.sora.util.akatsuki.IncludeClasses;
+import com.sora.util.akatsuki.RetainConfig;
+import com.sora.util.akatsuki.RetainConfig.Optimisation;
+import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.TransformationTemplate;
+import com.sora.util.akatsuki.TypeConverter;
+import com.sora.util.akatsuki.compiler.Utils.Defaults;
+import com.sora.util.akatsuki.compiler.Utils.Values;
+import com.sora.util.akatsuki.compiler.models.SourceTreeModel;
 
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -44,11 +41,12 @@ import javax.tools.Diagnostic.Kind;
 		"com.sora.util.akatsuki.DeclaredConverter", "com.sora.util.akatsuki.TypeConstraint",
 		"com.sora.util.akatsuki.RetainConfig" })
 @SupportedOptions({ "akatsuki.loggingLevel", "akatsuki.optimisation", "akatsuki.restorePolicy" })
-public class AkatsukiProcessor extends AbstractProcessor implements ProcessorContext {
+public class AkatsukiProcessor extends AbstractProcessor {
 
 	private static RetainConfig config;
 
-	private ProcessorUtils utils;
+	private ProcessorContext context;
+
 	private Map<String, String> options;
 
 	public static RetainConfig retainConfig() {
@@ -58,12 +56,12 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 	@Override
 	public synchronized void init(ProcessingEnvironment processingEnv) {
 		super.init(processingEnv);
-		this.utils = new ProcessorUtils(processingEnv.getTypeUtils(),
-				processingEnv.getElementUtils());
+		this.context = new ProcessorContext(processingEnv);
+
 		Map<String, String> options = processingEnv.getOptions();
 		if (options != null && !options.isEmpty()) {
 			this.options = options;
-			messager().printMessage(Kind.OTHER, "option received:" + options);
+			context.messager().printMessage(Kind.OTHER, "option received:" + options);
 		}
 	}
 
@@ -77,7 +75,7 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 			final List<RetainConfig> configs = findAnnotations(
 					roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
 			if (configs.size() > 1) {
-				messager().printMessage(Kind.ERROR,
+				context.messager().printMessage(Kind.ERROR,
 						"Multiple @RetainConfig found, you can only have one config. Found:"
 								+ configs.toString());
 			}
@@ -88,40 +86,46 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		}
 
 		// config is ready, we can log now
-		Log.verbose(this, retainConfig().toString());
+		Log.verbose(context, retainConfig().toString());
 
-		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
-		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
-		final FqcnModelMap map = BundleRetainerModel.findRetainedFields(this, roundEnv);
+		SourceTreeModel model = SourceTreeModel.fromRound(context, roundEnv, Retained.class);
 
-		if (map == null) {
-			messager().printMessage(Kind.ERROR, "verification failed");
+		if (model == null) {
+			context.messager().printMessage(Kind.ERROR, "verification failed");
 			return true;
 		}
 
-		if (map.isEmpty()) {
-			Log.verbose(this,
+		if (model.classModels().isEmpty()) {
+			Log.verbose(context,
 					"Round has no elements, classes possibly originated from another annotation processor");
 			return false;
 		}
 
-		map.values().stream().forEach(m -> {
-			try {
-				m.writeSourceToFile(processingEnv.getFiler(), templates, map, declaredConverters);
-			} catch (IOException e) {
-				messager().printMessage(Kind.ERROR,
-						"An error occurred while writing file: " + m.fqcn());
-				throw new RuntimeException(e);
-			}
+		// bundle retainer first
+
+		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
+		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
+
+		List<BundleRetainerModel> retainerModels = model.forEachClassSerial((c, t) -> {
+			BundleRetainerModel retainerModel = new BundleRetainerModel(context, c, t, templates,
+					                                                           declaredConverters);
+			retainerModel.writeSourceToFile(processingEnv.getFiler());
+			return retainerModel;
+		}, (e, m) -> {
+			context.messager().printMessage(Kind.ERROR, "An error occurred while writing file: " +
+					                                            m.asClassInfo());
+			throw new RuntimeException(e);
 		});
 
-		if (retainConfig().optimisation() != Optimisation.NONE) {
+		if (retainConfig().optimisation() != Optimisation.NONE && retainerModels != null) {
+
 			try {
-				new RetainerMappingModel(this).writeSourceToFile(processingEnv.getFiler(), map,
-						roundEnv.getRootElements(), retainConfig().optimisation());
+				new RetainerMappingModel(context).writeSourceToFile(processingEnv.getFiler(),
+						retainerModels, roundEnv.getRootElements(), retainConfig().optimisation());
 			} catch (IOException e) {
-				messager().printMessage(Kind.ERROR, "An error occurred while writing cache class, "
-						+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
+				context.messager().printMessage(Kind.ERROR,
+						"An error occurred while writing cache class, "
+								+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
 				throw new RuntimeException(e);
 			}
 		}
@@ -140,7 +144,7 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 				roundEnv.getElementsAnnotatedWith(IncludeClasses.class), IncludeClasses.class);
 
 		for (IncludeClasses classes : includeClasses) {
-			utils().getClassArrayFromAnnotationMethod(classes::value)
+			context.utils().getClassArrayFromAnnotationMethod(classes::value)
 					.forEach(t -> templates.addAll(Arrays.asList(
 							t.asElement().getAnnotationsByType(TransformationTemplate.class))));
 		}
@@ -157,8 +161,9 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 		final Set<? extends Element> elements = roundEnv
 				.getElementsAnnotatedWith(DeclaredConverter.class);
 		for (Element element : elements) {
-			if (!utils().isAssignable(element.asType(), utils().of(TypeConverter.class), true)) {
-				messager().printMessage(Kind.ERROR,
+			if (!context.utils().isAssignable(element.asType(),
+					context.utils().of(TypeConverter.class), true)) {
+				context.messager().printMessage(Kind.ERROR,
 						"@DeclaredConverter can only be used on types that implement TypeConverter",
 						element);
 			}
@@ -167,26 +172,6 @@ public class AkatsukiProcessor extends AbstractProcessor implements ProcessorCon
 				.map(e -> new DeclaredConverterModel((DeclaredType) e.asType(),
 						e.getAnnotation(DeclaredConverter.class).value()))
 				.collect(Collectors.toList());
-	}
-
-	@Override
-	public Types types() {
-		return processingEnv.getTypeUtils();
-	}
-
-	@Override
-	public Elements elements() {
-		return processingEnv.getElementUtils();
-	}
-
-	@Override
-	public ProcessorUtils utils() {
-		return utils;
-	}
-
-	@Override
-	public Messager messager() {
-		return processingEnv.getMessager();
 	}
 
 }

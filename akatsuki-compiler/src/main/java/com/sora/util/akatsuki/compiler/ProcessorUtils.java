@@ -1,18 +1,10 @@
 package com.sora.util.akatsuki.compiler;
 
-import com.google.common.collect.ImmutableSet;
-
-import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -24,11 +16,15 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
+import com.google.common.collect.ImmutableSet;
+
 public class ProcessorUtils {
 
 	private final ImmutableSet<TypeMirror> boxedTypes;
+
 	private final Types types;
 	private final Elements elements;
+
 
 	ProcessorUtils(Types types, Elements elements) {
 		this.types = types;
@@ -37,33 +33,6 @@ public class ProcessorUtils {
 		boxedTypes = ImmutableSet.of(of(Boolean.class), of(Byte.class), of(Character.class),
 				of(Float.class), of(Integer.class), of(Long.class), of(Short.class),
 				of(Double.class));
-	}
-
-	public boolean elementContainsAnyAnnotation(Element element,
-			Class<? extends Annotation> annotation) {
-		return element.getEnclosedElements().stream()
-				.anyMatch(e -> e.getAnnotation(annotation) != null);
-	}
-
-	public <T> Optional<T> traverseClassHierarchy(Element startingElement,
-			BiPredicate<TypeMirror, TypeElement> stopPredicate,
-			BiFunction<TypeMirror, TypeElement, T> transform) {
-		if (!(startingElement instanceof TypeElement)
-				|| startingElement.getKind() != ElementKind.CLASS)
-			return Optional.empty();
-		final TypeMirror superClassMirror = ((TypeElement) startingElement).getSuperclass();
-		final Element superClassElement = types.asElement(superClassMirror);
-		if (superClassElement != null && superClassElement.getKind() == ElementKind.CLASS) {
-			if (!superClassMirror.equals(of(Object.class))
-					&& stopPredicate.test(superClassMirror, (TypeElement) superClassElement)) {
-				return Optional
-						.of(transform.apply(superClassMirror, (TypeElement) superClassElement));
-			} else {
-				return traverseClassHierarchy(superClassElement, stopPredicate, transform);
-			}
-		} else {
-			return Optional.empty();
-		}
 	}
 
 	public boolean isPrimitive(TypeMirror mirror) {
@@ -83,25 +52,12 @@ public class ProcessorUtils {
 		return mirror instanceof DeclaredType;
 	}
 
-	public boolean isSimpleObject(TypeMirror mirror) {
-		return isObject(mirror) && getGenericTypes(mirror).isEmpty();
-	}
-
-	public boolean isGenericObject(TypeMirror mirror) {
-		return !getGenericTypes(mirror).isEmpty();
-	}
-
 	public boolean isAssignable(TypeMirror lhs, TypeMirror rhs, boolean ignoreGenericTypes) {
 		if (ignoreGenericTypes) {
 			lhs = toUnboundDeclaredType(lhs);
 			rhs = toUnboundDeclaredType(rhs);
 		}
 		return types.isAssignable(lhs, rhs);
-	}
-
-	public boolean isAssignable(TypeMirror target, boolean ignoreGenericTypes,
-			TypeMirror... mirrors) {
-		return Arrays.stream(mirrors).anyMatch(m -> isAssignable(target, m, ignoreGenericTypes));
 	}
 
 	public boolean isSameType(TypeMirror lhs, TypeMirror rhs, boolean ignoreGenericTypes) {
@@ -150,19 +106,13 @@ public class ProcessorUtils {
 		return of(clazz.getName());
 	}
 
-	public TypeMirror of(CharSequence qualifiedName) {
+	public  TypeMirror of(CharSequence qualifiedName) {
 		final TypeElement typeElement = elements.getTypeElement(qualifiedName);
-		if (typeElement == null)
-			throw new NullPointerException("TypeElement of " + qualifiedName + " cannot be found!");
-		return typeElement.asType();
-	}
-
-	public TypeMirror[] of(Class<?>... classes) {
-		return Arrays.stream(classes).map(this::of).toArray(TypeMirror[]::new);
-	}
-
-	public TypeMirror[] of(CharSequence... qualifiedNames) {
-		return Arrays.stream(qualifiedNames).map(this::of).toArray(TypeMirror[]::new);
+		if(typeElement == null){
+			return of(qualifiedName);
+		}else{
+			return typeElement.asType();
+		}
 	}
 
 	public DeclaredType getClassFromAnnotationMethod(Supplier<Class<?>> supplier) {

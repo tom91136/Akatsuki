@@ -1,19 +1,4 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
-import com.google.common.escape.CharEscaperBuilder;
-import com.google.common.escape.Escaper;
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
-import com.sora.util.akatsuki.Retained.RestorePolicy;
-import com.sora.util.akatsuki.compiler.AkatsukiProcessor;
-import com.sora.util.akatsuki.compiler.BundleContext;
-import com.sora.util.akatsuki.compiler.Log;
-import com.sora.util.akatsuki.compiler.MustacheUtils;
-import com.sora.util.akatsuki.compiler.ProcessorContext;
-import com.sora.util.akatsuki.compiler.ProcessorElement;
-import com.sora.util.akatsuki.compiler.ProcessorUtils;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,14 +7,23 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import javax.annotation.processing.Messager;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
-import javax.tools.Diagnostic.Kind;
+
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Strings;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
+import com.sora.util.akatsuki.Retained.RestorePolicy;
+import com.sora.util.akatsuki.compiler.AkatsukiProcessor;
+import com.sora.util.akatsuki.compiler.BundleContext;
+import com.sora.util.akatsuki.compiler.Log;
+import com.sora.util.akatsuki.compiler.MustacheUtils;
+import com.sora.util.akatsuki.compiler.ProcessorContext;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
 
 public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T, A>, T extends TypeMirror, A extends Analysis>
-		implements TransformationContext {
+		extends TransformationContext {
 
 	private int cascadeDepth;
 
@@ -40,28 +34,26 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	public static final Escaper ESCAPER = new CharEscaperBuilder()
 			.addEscapes(new char[] { '[', ']', '.', '(', ')' }, "_").toEscaper();
 
-	private final TransformationContext context;
-
 	protected TypeMirror targetMirror;
 	protected TypeCastStrategy strategy = TypeCastStrategy.AUTO_CAST;
 	protected String suffix = "";
 
 	public S target(TypeMirror mirror) {
-		final S instance = createInstance(context);
+		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.targetMirror = mirror;
 		return instance;
 	}
 
 	public S cast(TypeCastStrategy strategy) {
-		final S instance = createInstance(context);
+		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.strategy = strategy;
 		return instance;
 	}
 
 	public S suffix(String suffix) {
-		final S instance = createInstance(context);
+		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.suffix = this.suffix + suffix;
 		return instance;
@@ -94,16 +86,16 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	}
 
 	public CascadingTypeAnalyzer(TransformationContext context) {
-		this.context = context;
+		super(context);
 		this.cascadeDepth = 0;
 	}
 
 	public static class InvocationContext<T extends TypeMirror> {
 		public final BundleContext bundleContext;
-		public final ProcessorElement<T> field;
+		public final Element<T> field;
 		public final InvocationType type;
 
-		public InvocationContext(BundleContext bundleContext, ProcessorElement<T> field,
+		public InvocationContext(BundleContext bundleContext, Element<T> field,
 				InvocationType type) {
 			this.bundleContext = bundleContext;
 			this.field = field;
@@ -118,13 +110,12 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	}
 
 	@SuppressWarnings("unchecked")
-	public A transform(BundleContext bundleContext, ProcessorElement<?> element,
-			InvocationType type) throws UnknownTypeException {
-		Log.verbose(context,
+	public A transform(BundleContext bundleContext, Element<?> element, InvocationType type)
+			throws UnknownTypeException {
+		Log.verbose(this,
 				type + ">" + cascadeDepth + Strings.repeat(" ", cascadeDepth) + "\\Cascade:"
 						+ toString() + " -> " + element.toString() + " with " + bundleContext);
-		return createAnalysis(
-				new InvocationContext<>(bundleContext, (ProcessorElement<T>) element, type));
+		return createAnalysis(new InvocationContext<>(bundleContext, (Element<T>) element, type));
 	}
 
 	public Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
@@ -133,8 +124,7 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	}
 
 	public Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
-			InvocationContext<?> context,
-			Function<ProcessorElement<?>, ProcessorElement<?>> elementTransformation)
+			InvocationContext<?> context, Function<Element<?>, Element<?>> elementTransformation)
 					throws UnknownTypeException {
 		transformation.cascadeDepth = cascadeDepth + 1;
 		return transformation.transform(context.bundleContext,
@@ -144,32 +134,6 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 
 	protected TypeMirror targetOrElse(TypeMirror mirror) {
 		return targetMirror != null ? targetMirror : mirror;
-	}
-
-	@Override
-	public Types types() {
-		return context.types();
-	}
-
-	@Override
-	public Elements elements() {
-		return context.elements();
-	}
-
-	@Override
-	public ProcessorUtils utils() {
-		return context.utils();
-	}
-
-	@Override
-	public Messager messager() {
-		return context.messager();
-	}
-
-	@Override
-	public CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolve(
-			ProcessorElement<?> element) {
-		return context.resolve(element);
 	}
 
 	public interface Analysis {
@@ -370,7 +334,7 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 
 		// public final Field<?> field;
 
-		public UnknownTypeException(ProcessorElement<?> element) {
+		public UnknownTypeException(Element<?> element) {
 			super("unknown type " + element + "(" + element.refinedMirror().getClass() + ")");
 		}
 

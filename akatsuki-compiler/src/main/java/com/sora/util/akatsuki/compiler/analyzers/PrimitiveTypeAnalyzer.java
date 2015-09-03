@@ -1,12 +1,13 @@
-package com.sora.util.akatsuki.compiler.transformations;
+package com.sora.util.akatsuki.compiler.analyzers;
 
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis;
+import static com.sora.util.akatsuki.compiler.Utils.toCapitalCase;
 
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 
-import static com.sora.util.akatsuki.compiler.Utils.toCapitalCase;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.DefaultAnalysis;
 
 public class PrimitiveTypeAnalyzer
 		extends CascadingTypeAnalyzer<PrimitiveTypeAnalyzer, TypeMirror, DefaultAnalysis> {

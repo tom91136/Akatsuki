@@ -1,11 +1,12 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.compiler.AndroidTypes;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.DefaultAnalysis;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.Arrays;
 
 import javax.lang.model.type.DeclaredType;
+
+import com.sora.util.akatsuki.compiler.AndroidTypes;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.DefaultAnalysis;
 
 public class ObjectTypeAnalyzer
 		extends CascadingTypeAnalyzer<ObjectTypeAnalyzer, DeclaredType, DefaultAnalysis> {

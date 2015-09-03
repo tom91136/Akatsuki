@@ -174,21 +174,49 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	}
 
 	@Test
-	public void testSimpleInheritance() {
+	public void testSimpleInheritance1() {
 		testInheritance(true, new RetainedField(String.class, "a"),
 				new RetainedField(int.class, "b"));
 	}
 
 	@Test
-	public void testMultiLevelInheritance() {
+	public void testSimpleInheritance2() {
+		testInheritance(true, new RetainedField(CharSequence.class, "a"),
+				new RetainedField(Parcelable.class, "b"));
+	}
+
+	@Test
+	public void testSimpleInheritance3() {
+		testInheritance(true, new RetainedField(float.class, "a"),
+				new RetainedField(double.class, "b"));
+	}
+
+	@Test
+	public void testMultiLevelInheritance1() {
 		testInheritance(true, new RetainedField(String.class, "a"),
 				new RetainedField(int.class, "b"), new RetainedField(long.class, "c"));
 	}
 
 	@Test
+	public void testDeepInheritance() {
+		RetainedField[] fields = new RetainedField[SUPPORTED_SIMPLE_CLASSES.length];
+		for (int i = 0; i < fields.length; i++) {
+			fields[i] = new RetainedField(SUPPORTED_SIMPLE_CLASSES[i], "s" + i);
+		}
+		testInheritance(true, new RetainedField(int.class, "first"), fields);
+	}
+
+	@Test
+	public void testMultiLevelInheritance2() {
+		testInheritance(true, new RetainedField(int.class, "d"),
+				new RetainedField(String.class, "e"), new RetainedField(long.class, "f"),
+				new RetainedField(Parcelable.class, "g"));
+	}
+
+	@Test
 	public void testMultiLevelInheritanceWithGap() {
-		testInheritance(true, new RetainedField(String.class, "a"), new Field(int.class, "b"),
-				new RetainedField(long.class, "c"));
+		testInheritance(true, new RetainedField(String.class, "h"), new Field(int.class, "i"),
+				new RetainedField(long.class, "j"));
 	}
 
 	@Test

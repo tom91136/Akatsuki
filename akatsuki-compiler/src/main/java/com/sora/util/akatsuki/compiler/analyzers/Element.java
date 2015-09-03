@@ -1,106 +1,80 @@
-package com.sora.util.akatsuki.compiler;
-
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.Iterables;
-import com.sora.util.akatsuki.Retained;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.CodeTransform;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
-public class ProcessorElement<T extends TypeMirror> {
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.Iterables;
+import com.sora.util.akatsuki.Retained;
+import com.sora.util.akatsuki.compiler.ProcessorContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.CodeTransform;
+import com.sora.util.akatsuki.compiler.models.FieldModel;
+import com.sora.util.akatsuki.compiler.models.FieldModel.Flag;
 
-	private final Retained retained;
+public class Element<T extends TypeMirror> {
 
-	private final Element originatingElement;
-	private final TypeElement enclosingElement;
+	private final FieldModel model;
 
 	private final List<CodeTransform> keyNameTransformations;
 	private final List<CodeTransform> fieldAccessorTransformations;
-	private String fieldName;
 	private String accessorExpression;
 
 	private TypeMirror fieldMirror;
 	private T refinedMirror;
 
-	private DeclaredType typeConverter;
-	private boolean hidden = false;
-
 	@SuppressWarnings("unchecked")
-	public ProcessorElement(Retained retained, VariableElement element,
-			DeclaredType typeConverter) {
-		this.retained = retained;
-		this.originatingElement = element;
-		this.enclosingElement = ((TypeElement) element.getEnclosingElement());
-
+	public Element(FieldModel model) {
+		this.model = model;
 		this.keyNameTransformations = new ArrayList<>();
 		this.fieldAccessorTransformations = new ArrayList<>();
-		this.fieldName = element.getSimpleName().toString();
 		this.accessorExpression = "";
-		this.fieldMirror = element.asType();
-		this.refinedMirror = (T) element.asType();
-		this.typeConverter = typeConverter;
+		this.fieldMirror = model.type();
+		this.refinedMirror = (T) model.type();
 	}
 
 	// copy constructor
 	@SuppressWarnings("unchecked")
-	private ProcessorElement(ProcessorElement<?> element) {
-		this.retained = element.retained;
-		this.originatingElement = element.originatingElement;
-		this.enclosingElement = element.enclosingElement;
-
+	private Element(Element<?> element) {
+		this.model = element.model;
 		this.keyNameTransformations = new ArrayList<>(element.keyNameTransformations);
 		this.fieldAccessorTransformations = new ArrayList<>(element.fieldAccessorTransformations);
-		this.fieldName = element.fieldName;
 		this.accessorExpression = element.accessorExpression;
 		this.fieldMirror = element.fieldMirror;
 		this.refinedMirror = (T) element.refinedMirror;
-		this.typeConverter = element.typeConverter;
 	}
 
-	public Retained retained(){
-		return retained;
+	public Retained retained() {
+		return model.annotation(Retained.class);
 	}
 
-	public Element originatingElement() {
-		return originatingElement;
+	public javax.lang.model.element.Element originatingElement() {
+		return model.element;
 	}
 
-	public DeclaredType typeConverter() {
-		return typeConverter;
-	}
-
-	public String fieldName() {
-		return fieldName;
+	public DeclaredType typeConverter(ProcessorContext context) {
+		return context.utils().getClassFromAnnotationMethod(retained()::converter);
 	}
 
 	public String accessor(Function<String, String> fieldAccessFunction) {
-		String fieldAccess = fieldAccessFunction.apply(fieldName + accessorExpression);
+		String fieldAccess = fieldAccessFunction.apply(model.name() + accessorExpression);
 		for (Function<String, String> transformations : fieldAccessorTransformations) {
 			fieldAccess = transformations.apply(fieldAccess);
 		}
 		return fieldAccess;
 	}
 
-	public String accessorExpression() {
-		return accessorExpression;
-	}
-
 	public String uniqueName() {
-		if (hidden) {
+		if (model.flags().contains(Flag.HIDDEN)) {
 			// fieldName_packageName
-			return fieldName + "_" + enclosingElement.getQualifiedName();
+			return model.name() + "_" + model.enclosingElement().getQualifiedName();
 		} else {
 			// fieldName
-			return fieldName;
+			return model.name();
 		}
 	}
 
@@ -124,19 +98,7 @@ public class ProcessorElement<T extends TypeMirror> {
 		return new Builder<>(this);
 	}
 
-	public boolean hidden() {
-		return hidden;
-	}
-
-	public boolean notHidden() {
-		return !hidden;
-	}
-
-	public void hidden(boolean hidden) {
-		this.hidden = hidden;
-	}
-
-	public <NT extends TypeMirror> ProcessorElement<NT> refine(NT newTypeMirror) {
+	public <NT extends TypeMirror> Element<NT> refine(NT newTypeMirror) {
 		return toBuilder().refinedType(newTypeMirror).build();
 	}
 
@@ -156,10 +118,10 @@ public class ProcessorElement<T extends TypeMirror> {
 			}
 		}
 
-		private ProcessorElement<T> element;
+		private Element<T> element;
 
-		private Builder(ProcessorElement<T> element) {
-			this.element = new ProcessorElement<>(element);
+		private Builder(Element<T> element) {
+			this.element = new Element<>(element);
 		}
 
 		public <NT extends TypeMirror> Builder<NT> type(NT type) {
@@ -182,11 +144,6 @@ public class ProcessorElement<T extends TypeMirror> {
 			return this;
 		}
 
-		public Builder<T> fieldName(SetterMode mode, String name) {
-			element.fieldName = mode.process(element.fieldName, name);
-			return this;
-		}
-
 		public Builder<T> fieldNameTransforms(CodeTransform transform) {
 			element.fieldAccessorTransformations.add(transform);
 			return this;
@@ -197,8 +154,8 @@ public class ProcessorElement<T extends TypeMirror> {
 			return this;
 		}
 
-		public ProcessorElement<T> build() {
-			final ProcessorElement<T> element = this.element;
+		public Element<T> build() {
+			final Element<T> element = this.element;
 			// forbid mutation through the builder once the object has been
 			// build
 			this.element = null;
@@ -209,11 +166,9 @@ public class ProcessorElement<T extends TypeMirror> {
 
 	@Override
 	public String toString() {
-		return MoreObjects.toStringHelper(this).add("originatingElement", originatingElement)
-				.add("enclosingElement", enclosingElement)
+		return MoreObjects.toStringHelper(this)
 				.add("keyNameTransformations", Iterables.size(keyNameTransformations))
-				.add("fieldName", fieldName).add("accessorExpression", accessorExpression)
-				.add("fieldMirror", fieldMirror).add("refinedMirror", refinedMirror)
-				.add("typeConverter", typeConverter).add("hidden", hidden).toString();
+				.add("accessorExpression", accessorExpression).add("fieldMirror", fieldMirror)
+				.add("refinedMirror", refinedMirror).toString();
 	}
 }

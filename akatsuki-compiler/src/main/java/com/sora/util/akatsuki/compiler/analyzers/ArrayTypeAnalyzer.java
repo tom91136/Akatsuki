@@ -1,13 +1,4 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.compiler.AndroidTypes;
-import com.sora.util.akatsuki.compiler.MustacheUtils;
-import com.sora.util.akatsuki.compiler.ProcessorElement;
-import com.sora.util.akatsuki.compiler.ProcessorElement.Builder.SetterMode;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
-import com.sora.util.akatsuki.compiler.transformations.PrimitiveTypeAnalyzer.Type;
-import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.CodeBlock.Builder;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -16,6 +7,15 @@ import java.util.Optional;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+
+import com.sora.util.akatsuki.compiler.AndroidTypes;
+import com.sora.util.akatsuki.compiler.MustacheUtils;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
+import com.sora.util.akatsuki.compiler.analyzers.Element.Builder.SetterMode;
+import com.sora.util.akatsuki.compiler.analyzers.PrimitiveTypeAnalyzer.Type;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.CodeBlock.Builder;
 
 public class ArrayTypeAnalyzer
 		extends CascadingTypeAnalyzer<ArrayTypeAnalyzer, ArrayType, Analysis> {
@@ -64,7 +64,7 @@ public class ArrayTypeAnalyzer
 					.target(types().getArrayType(found.get().asMirror(this))), context, component);
 		} else {
 			// everything else
-			final ProcessorElement<TypeMirror> refined = context.field.refine(component);
+			final Element<TypeMirror> refined = context.field.refine(component);
 
 			CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolved;
 			if (component.getKind() == TypeKind.ARRAY) {

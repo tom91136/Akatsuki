@@ -1,13 +1,14 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.google.common.base.Strings;
-import com.sora.util.akatsuki.TransformationTemplate;
-import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.lang.annotation.Annotation;
 
 import javax.lang.model.type.TypeMirror;
+
+import com.google.common.base.Strings;
+import com.sora.util.akatsuki.TransformationTemplate;
+import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
 
 public class TemplateAnalyzer
 		extends CascadingTypeAnalyzer<TemplateAnalyzer, TypeMirror, Analysis> {

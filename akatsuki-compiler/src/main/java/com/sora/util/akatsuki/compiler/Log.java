@@ -1,9 +1,9 @@
 package com.sora.util.akatsuki.compiler;
 
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
-
 import javax.lang.model.element.Element;
 import javax.tools.Diagnostic.Kind;
+
+import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
 
 public final class Log {
 

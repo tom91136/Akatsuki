@@ -1,10 +1,30 @@
 package com.sora.util.akatsuki.compiler;
 
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import javax.annotation.processing.Filer;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleElementVisitor8;
+
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.BundleRetainer;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.RetainerCache;
-import com.sora.util.akatsuki.compiler.BundleRetainerModel.FqcnModelMap;
+import com.sora.util.akatsuki.compiler.models.BaseModel;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -18,31 +38,13 @@ import com.squareup.javapoet.TypeSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-
-import javax.annotation.processing.Filer;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleElementVisitor8;
-
-public class RetainerMappingModel extends GenerationTargetModel {
+public class RetainerMappingModel extends BaseModel {
 
 	protected RetainerMappingModel(ProcessorContext context) {
 		super(context);
 	}
 
-	public void writeSourceToFile(Filer filer, FqcnModelMap modelMap,
+	public void writeSourceToFile(Filer filer, List<BundleRetainerModel> models,
 			Collection<? extends Element> rootElements, Optimisation optimisation)
 					throws IOException {
 
@@ -69,12 +71,15 @@ public class RetainerMappingModel extends GenerationTargetModel {
 
 		final CodeBlock.Builder builder = CodeBlock.builder();
 
-		Consumer<FqcnModelMap> modelToMapConsumer = m -> {
+		Consumer<Map<String, BundleRetainerModel>> modelToMapConsumer = m -> {
 			for (Entry<String, BundleRetainerModel> entry : m.entrySet()) {
 				builder.add("CACHE.put($S, $L);\n", entry.getKey(),
-						entry.getValue().fqcn() + ".class");
+						entry.getValue().generatedClassInfo().fullyQualifiedClassName() + ".class");
 			}
 		};
+
+		Map<String, BundleRetainerModel> modelMap = models.stream().collect(
+				Collectors.toMap(m -> m.classModel().fullyQualifiedName(), Function.identity()));
 
 		if (optimisation == Optimisation.ALL || optimisation == Optimisation.ANNOTATED) {
 			// all annotated classes
@@ -107,12 +112,13 @@ public class RetainerMappingModel extends GenerationTargetModel {
 
 	}
 
-	private FqcnModelMap findAllTypes(final Element element, final FqcnModelMap referenceMap) {
-		final FqcnModelMap modelMap = new FqcnModelMap();
-		element.accept(new SimpleElementVisitor8<Void, FqcnModelMap>() {
+	private Map<String, BundleRetainerModel> findAllTypes(final Element element,
+			final Map<String, BundleRetainerModel> referenceMap) {
+		Map<String, BundleRetainerModel> modelMap = new HashMap<>();
+		element.accept(new SimpleElementVisitor8<Void, Map<String, BundleRetainerModel>>() {
 
 			@Override
-			public Void visitType(TypeElement e, FqcnModelMap map) {
+			public Void visitType(TypeElement e, Map<String, BundleRetainerModel> map) {
 				if (e.getKind() == ElementKind.CLASS) {
 					// only process class that isn't in the map
 					if (!referenceMap.containsKey(e.getQualifiedName().toString())) {
@@ -135,8 +141,7 @@ public class RetainerMappingModel extends GenerationTargetModel {
 		TypeElement type = (TypeElement) element;
 		TypeMirror superMirror = type.getSuperclass();
 		return models.stream()
-				.filter(m -> context.utils().isSameType(m.enclosingClass().asType(), superMirror,
-						true))
+				.filter(m -> context.utils().isSameType(m.classModel().mirror(), superMirror, true))
 				.findFirst().map(Optional::of)
 				.orElse(findInheritedModel(context.types().asElement(superMirror), models));
 	}

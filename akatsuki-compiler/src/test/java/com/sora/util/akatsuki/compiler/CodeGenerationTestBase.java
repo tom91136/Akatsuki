@@ -179,6 +179,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			boolean test(Field field, Class<?> type, Type[] arguments);
 		}
 
+
 		final Object mockedSource;
 		final Bundle mockedBundle;
 		final BundleRetainer<Object> retainer;
@@ -202,6 +203,7 @@ public abstract class CodeGenerationTestBase extends TestBase {
 			final Class<?> testClass;
 			try {
 				final String fqcn = sources.get(0).fqcn();
+				System.out.println("Loading class " + fqcn + " as test class");
 				testClass = result.classLoader.loadClass(fqcn);
 
 				RetainerCache retainerCache = null;

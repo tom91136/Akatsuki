@@ -1,12 +1,13 @@
-package com.sora.util.akatsuki.compiler.transformations;
-
-import com.sora.util.akatsuki.Akatsuki;
-import com.sora.util.akatsuki.compiler.transformations.CascadingTypeAnalyzer.Analysis;
+package com.sora.util.akatsuki.compiler.analyzers;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.lang.model.type.TypeMirror;
+
+import com.sora.util.akatsuki.Akatsuki;
+import com.sora.util.akatsuki.compiler.TransformationContext;
+import com.sora.util.akatsuki.compiler.analyzers.CascadingTypeAnalyzer.Analysis;
 
 public class NestedTypeAnalyzer
 		extends CascadingTypeAnalyzer<NestedTypeAnalyzer, TypeMirror, Analysis> {
