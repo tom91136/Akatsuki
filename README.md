@@ -3,6 +3,7 @@
 
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat)](https://android-arsenal.com/details/1/2230)
 [![Build Status](https://travis-ci.org/tom91136/Akatsuki.svg)](https://travis-ci.org/tom91136/Akatsuki)
+[![Download](https://api.bintray.com/packages/tom91136/maven/Akatsuki/images/download.svg)](https://bintray.com/tom91136/maven/Akatsuki/_latestVersion)
 
 Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
