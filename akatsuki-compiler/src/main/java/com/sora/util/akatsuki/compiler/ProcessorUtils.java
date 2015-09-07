@@ -25,7 +25,6 @@ public class ProcessorUtils {
 	private final Types types;
 	private final Elements elements;
 
-
 	ProcessorUtils(Types types, Elements elements) {
 		this.types = types;
 		this.elements = elements;
@@ -106,13 +105,8 @@ public class ProcessorUtils {
 		return of(clazz.getName());
 	}
 
-	public  TypeMirror of(CharSequence qualifiedName) {
-		final TypeElement typeElement = elements.getTypeElement(qualifiedName);
-		if(typeElement == null){
-			return of(qualifiedName);
-		}else{
-			return typeElement.asType();
-		}
+	public TypeMirror of(CharSequence qualifiedName) {
+		return elements.getTypeElement(qualifiedName).asType();
 	}
 
 	public DeclaredType getClassFromAnnotationMethod(Supplier<Class<?>> supplier) {

@@ -13,8 +13,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
-import com.sora.util.akatsuki.Retained.RestorePolicy;
-import com.sora.util.akatsuki.compiler.AkatsukiProcessor;
 import com.sora.util.akatsuki.compiler.BundleContext;
 import com.sora.util.akatsuki.compiler.Log;
 import com.sora.util.akatsuki.compiler.MustacheUtils;
@@ -38,21 +36,21 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	protected TypeCastStrategy strategy = TypeCastStrategy.AUTO_CAST;
 	protected String suffix = "";
 
-	public S target(TypeMirror mirror) {
+	S target(TypeMirror mirror) {
 		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.targetMirror = mirror;
 		return instance;
 	}
 
-	public S cast(TypeCastStrategy strategy) {
+	S cast(TypeCastStrategy strategy) {
 		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.strategy = strategy;
 		return instance;
 	}
 
-	public S suffix(String suffix) {
+	S suffix(String suffix) {
 		final S instance = createInstance(this);
 		cloneFields(instance);
 		instance.suffix = this.suffix + suffix;
@@ -106,7 +104,10 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	protected abstract A createAnalysis(InvocationContext<T> context) throws UnknownTypeException;
 
 	protected String fieldAccessor(InvocationContext<?> context) {
-		return context.field.accessor(fn -> context.bundleContext.sourceObjectName() + "." + fn);
+		return context.field.accessor(fn -> {
+			String objectName = context.bundleContext.sourceObjectName();
+			return Strings.isNullOrEmpty(objectName) ? fn : objectName + "." + fn;
+		});
 	}
 
 	@SuppressWarnings("unchecked")
@@ -118,12 +119,12 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 		return createAnalysis(new InvocationContext<>(bundleContext, (Element<T>) element, type));
 	}
 
-	public Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
+	protected Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
 			InvocationContext<?> context, TypeMirror mirror) throws UnknownTypeException {
 		return cascade(transformation, context, f -> f.refine(mirror));
 	}
 
-	public Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
+	protected Analysis cascade(CascadingTypeAnalyzer<?, ?, ?> transformation,
 			InvocationContext<?> context, Function<Element<?>, Element<?>> elementTransformation)
 					throws UnknownTypeException {
 		transformation.cascadeDepth = cascadeDepth + 1;
@@ -218,7 +219,6 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 	static class DefaultAnalysis extends ChainedAnalysis {
 
 		private final Map<String, Object> scope;
-		private String prepend = "", append = "";
 		private RawStatement expression;
 
 		DefaultAnalysis(Map<String, Object> scope, RawStatement statement) {
@@ -228,18 +228,7 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 
 		@Override
 		public String emit() {
-			return MustacheUtils.render(scope, prepend) + transforms.apply(expression.render(scope))
-					+ MustacheUtils.render(scope, append);
-		}
-
-		DefaultAnalysis prepend(String prepend) {
-			this.prepend = prepend;
-			return this;
-		}
-
-		DefaultAnalysis append(String append) {
-			this.append = append;
-			return this;
+			return MustacheUtils.render(scope, transforms.apply(expression.render(scope)));
 		}
 
 		@Override
@@ -247,48 +236,16 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 			expression.transform(transform);
 		}
 
-		private static <T extends TypeMirror> Map<String, Object> createScope(
-				InvocationContext<T> context) {
-			final HashMap<String, Object> scope = new HashMap<>();
-			scope.put("fieldName", context.field
-					.accessor(fn -> context.bundleContext.sourceObjectName() + "." + fn));
-			scope.put("keyName", context.field.keyName());
-			scope.put("bundle", context.bundleContext.bundleObjectName());
-			return scope;
-		}
-
 		static <T extends TypeMirror> DefaultAnalysis of(CascadingTypeAnalyzer<?, T, ?> analyzer,
 				RawStatement statement, InvocationContext<T> context,
 				Map<String, Object> extraScope) {
-			final Map<String, Object> scope = createScope(context);
+			final HashMap<String, Object> scope = new HashMap<>();
+			scope.put("fieldName", analyzer.fieldAccessor(context));
+			scope.put("keyName", context.field.keyName());
+			scope.put("bundle", context.bundleContext.bundleObjectName());
 			if (extraScope != null)
 				scope.putAll(extraScope);
-			DefaultAnalysis analysis = new DefaultAnalysis(scope, statement);
-
-			if (context.type == InvocationType.RESTORE) {
-				RestorePolicy policy = context.field.retained().restorePolicy();
-				if (policy == RestorePolicy.DEFAULT) {
-					policy = AkatsukiProcessor.retainConfig().restorePolicy();
-				}
-				// policy only works on objects as primitives have default
-				// values which we can't really check for :(
-				if (!analyzer.utils().isPrimitive(context.field.fieldMirror())) {
-					switch (policy) {
-					case IF_NULL:
-						analysis.prepend("if({{fieldName}} == null){\n").append("}\n");
-						break;
-					case IF_NOT_NULL:
-						analysis.prepend("if({{fieldName}} != null){\n").append("}\n");
-						break;
-					default:
-					case DEFAULT:
-					case OVERWRITE:
-						// do nothing
-						break;
-					}
-				}
-			}
-			return analysis;
+			return new DefaultAnalysis(scope, statement);
 		}
 
 		static <T extends TypeMirror> DefaultAnalysis of(CascadingTypeAnalyzer<?, T, ?> analyzer,

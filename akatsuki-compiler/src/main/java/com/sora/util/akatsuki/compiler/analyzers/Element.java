@@ -48,16 +48,12 @@ public class Element<T extends TypeMirror> {
 		this.refinedMirror = (T) element.refinedMirror;
 	}
 
-	public Retained retained() {
-		return model.annotation(Retained.class);
-	}
-
 	public javax.lang.model.element.Element originatingElement() {
 		return model.element;
 	}
 
-	public DeclaredType typeConverter(ProcessorContext context) {
-		return context.utils().getClassFromAnnotationMethod(retained()::converter);
+	public FieldModel model() {
+		return model;
 	}
 
 	public String accessor(Function<String, String> fieldAccessFunction) {

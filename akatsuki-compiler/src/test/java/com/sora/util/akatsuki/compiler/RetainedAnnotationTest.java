@@ -8,6 +8,8 @@ import org.junit.Test;
 
 import java.io.Serializable;
 
+import javax.lang.model.element.Modifier;
+
 public class RetainedAnnotationTest extends CodeGenerationTestBase {
 
 	@Test
@@ -48,13 +50,19 @@ public class RetainedAnnotationTest extends CodeGenerationTestBase {
 				String.class, Serializable.class);
 	}
 
-	// no classes should be generated at all
-	@Test(expected = RuntimeException.class)
+	@Test()
 	public void testSkipAll() {
 		AnnotationSpec spec = AnnotationSpec.builder(Retained.class).addMember("skip", "$L", true)
 				.build();
 		testSimpleTypes(n -> false, TestEnvironment.CLASS, f -> field(f.typeName(), f.name, spec),
 				String.class);
+	}
+
+	@Test(expected = RuntimeException.class)
+	public void testTransientShouldSkip() {
+		AnnotationSpec spec = AnnotationSpec.builder(Retained.class).build();
+		testSimpleTypes(n -> false, TestEnvironment.CLASS,
+				f -> field(f.typeName(), f.name, spec, Modifier.TRANSIENT), String.class);
 	}
 
 	private AnnotationSpec fromRestorePolicy(RestorePolicy policy) {

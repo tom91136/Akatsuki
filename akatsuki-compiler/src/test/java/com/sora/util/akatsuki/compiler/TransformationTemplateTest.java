@@ -3,6 +3,7 @@ package com.sora.util.akatsuki.compiler;
 import android.os.Bundle;
 
 import com.sora.util.akatsuki.DeclaredConverter;
+import com.sora.util.akatsuki.Def;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
@@ -193,8 +194,9 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 			sources.add(converter);
 
 		} else {
-			fieldBuilder.addAnnotation(AnnotationSpec.builder(Retained.class)
-					.addMember("converter", "$T.class", StringObjectTypeConverter.class).build());
+			fieldBuilder.addAnnotation(AnnotationSpec.builder(Retained.class).build());
+			fieldBuilder.addAnnotation(AnnotationSpec.builder(Def.class)
+					.addMember("value", "$T.class", StringObjectTypeConverter.class).build());
 		}
 		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
 				Modifier.PUBLIC).fields(fieldBuilder.build());

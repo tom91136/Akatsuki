@@ -19,8 +19,7 @@ public class TransformationContext extends ProcessorContext {
 		this(context, context.resolver);
 	}
 
-	public CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolve(
-			Element<?> element) {
+	protected CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolve(Element<?> element) {
 		return resolver.resolve(element);
 	}
 }

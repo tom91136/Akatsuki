@@ -39,20 +39,39 @@ public class SourceTreeModel extends BaseModel {
 		this.models = models;
 	}
 
-	// create our model here
-	@SafeVarargs
-	public static SourceTreeModel fromRound(ProcessorContext context, RoundEnvironment roundEnv,
-			Class<? extends Annotation>... classes) {
 
-		final Set<Element> elements = new HashSet<>();
-		for (Class<? extends Annotation> clazz : classes) {
-			elements.addAll(roundEnv.getElementsAnnotatedWith(clazz));
+
+	private static void collectElements(ArrayList<Element> elements, Element root, Set<Class<? extends Annotation>> classes){
+		if(root.getKind()== ElementKind.CLASS){
+			for (Element element : root.getEnclosedElements()) {
+				collectElements(elements, element, classes);
+			}
+		}else if(root.getKind() == ElementKind.FIELD && classes.stream().anyMatch(c -> root.getAnnotation(c) != null)){
+			elements.add(root);
 		}
+	}
+
+	// create our model here
+	public static SourceTreeModel fromRound(ProcessorContext context, RoundEnvironment roundEnv,
+			Set<Class<? extends Annotation>> classes) {
+
+//		final Set<Element> elements = new HashSet<>();
+//		for (Class<? extends Annotation> clazz : classes) {
+//			elements.addAll(roundEnv.getElementsAnnotatedWith(clazz));
+//		}
+
+
+		ArrayList<Element> list = new ArrayList<>();
+		for (Element root : roundEnv.getRootElements()) {
+			collectElements(list, root, classes);
+		}
+
+
 
 		Map<String, SourceClassModel> classNameMap = new HashMap<>();
 		int processed = 0;
 		boolean verifyOnly = false;
-		for (Element element : elements) {
+		for (Element element : list) {
 
 			// skip if error
 			if (!annotatedElementValid(context, element)
@@ -65,25 +84,26 @@ public class SourceTreeModel extends BaseModel {
 			if (!verifyOnly) {
 				final TypeElement enclosingClass = (TypeElement) element.getEnclosingElement();
 
-				final Retained retained = element.getAnnotation(Retained.class);
 				// transient marks the field as skipped
-				if (!retained.skip() && !element.getModifiers().contains(Modifier.TRANSIENT)) {
+				if (!element.getModifiers().contains(Modifier.TRANSIENT)) {
 					final SourceClassModel model = classNameMap.computeIfAbsent(
 							enclosingClass.getQualifiedName().toString(),
 							k -> new SourceClassModel(context, enclosingClass));
-					Set<Class<? extends Annotation>> annotationClasses = Arrays.stream(classes)
+					Set<Class<? extends Annotation>> annotationClasses = classes.stream()
 							.filter(c -> element.getAnnotation(c) != null)
 							.collect(Collectors.toSet());
 					model.fields.add(new FieldModel((VariableElement) element, annotationClasses));
 					Log.verbose(context, "Element marked", element);
+				} else {
+					Log.verbose(context, "Element skipped", element);
 				}
 			}
 			processed++;
 		}
 
-		if (processed != elements.size()) {
+		if (processed != list.size()) {
 			context.messager().printMessage(Kind.NOTE,
-					(elements.size() - processed)
+					(list.size() - processed)
 							+ " error(s) occurred, no files are generated after the first "
 							+ "error has occurred.");
 		} else {

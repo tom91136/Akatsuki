@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,12 +24,17 @@ import javax.lang.model.type.DeclaredType;
 import javax.tools.Diagnostic.Kind;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ObjectArrays;
+import com.sora.util.akatsuki.Arg;
 import com.sora.util.akatsuki.DeclaredConverter;
+import com.sora.util.akatsuki.Def;
 import com.sora.util.akatsuki.IncludeClasses;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.TransformationTemplate;
+import com.sora.util.akatsuki.TypeConstraint;
 import com.sora.util.akatsuki.TypeConverter;
 import com.sora.util.akatsuki.compiler.Utils.Defaults;
 import com.sora.util.akatsuki.compiler.Utils.Values;
@@ -36,10 +42,6 @@ import com.sora.util.akatsuki.compiler.models.SourceTreeModel;
 
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-@SupportedAnnotationTypes({ "com.sora.util.akatsuki.Retained",
-		"com.sora.util.akatsuki.TransformationTemplate", "com.sora.util.akatsuki.IncludeClasses",
-		"com.sora.util.akatsuki.DeclaredConverter", "com.sora.util.akatsuki.TypeConstraint",
-		"com.sora.util.akatsuki.RetainConfig" })
 @SupportedOptions({ "akatsuki.loggingLevel", "akatsuki.optimisation", "akatsuki.restorePolicy" })
 public class AkatsukiProcessor extends AbstractProcessor {
 
@@ -48,6 +50,13 @@ public class AkatsukiProcessor extends AbstractProcessor {
 	private ProcessorContext context;
 
 	private Map<String, String> options;
+
+	private static final Set<Class<? extends Annotation>> FIELD_ANNOTATIONS = ImmutableSet
+			.of(Def.class, Retained.class, Arg.class);
+
+	private static final Set<Class<? extends Annotation>> SUPPORT_ANNOTATIONS = ImmutableSet.of(
+			TransformationTemplate.class, IncludeClasses.class, DeclaredConverter.class,
+			TypeConstraint.class, RetainConfig.class);
 
 	public static RetainConfig retainConfig() {
 		return config;
@@ -88,7 +97,7 @@ public class AkatsukiProcessor extends AbstractProcessor {
 		// config is ready, we can log now
 		Log.verbose(context, retainConfig().toString());
 
-		SourceTreeModel model = SourceTreeModel.fromRound(context, roundEnv, Retained.class);
+		SourceTreeModel model = SourceTreeModel.fromRound(context, roundEnv, FIELD_ANNOTATIONS);
 
 		if (model == null) {
 			context.messager().printMessage(Kind.ERROR, "verification failed");
@@ -103,12 +112,13 @@ public class AkatsukiProcessor extends AbstractProcessor {
 
 		// bundle retainer first
 
-		final List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
-		final List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
+		List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
+		List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
+		final TypeAnalyzerResolver resolver = new TypeAnalyzerResolver(templates,
+				declaredConverters, model, context);
 
 		List<BundleRetainerModel> retainerModels = model.forEachClassSerial((c, t) -> {
-			BundleRetainerModel retainerModel = new BundleRetainerModel(context, c, t, templates,
-					declaredConverters);
+			BundleRetainerModel retainerModel = new BundleRetainerModel(context, c, t, resolver);
 			retainerModel.writeSourceToFile(processingEnv.getFiler());
 			return retainerModel;
 		} , (e, m) -> {
@@ -128,6 +138,13 @@ public class AkatsukiProcessor extends AbstractProcessor {
 								+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
 				throw new RuntimeException(e);
 			}
+		}
+
+		try {
+			new ArgumentBuilderModel(context, model, resolver)
+					.writeSourceToFile(processingEnv.getFiler());
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 		return true;
 	}
@@ -174,4 +191,11 @@ public class AkatsukiProcessor extends AbstractProcessor {
 				.collect(Collectors.toList());
 	}
 
+	@Override
+	public Set<String> getSupportedAnnotationTypes() {
+		HashSet<Class<? extends Annotation>> classes = new HashSet<>();
+		classes.addAll(FIELD_ANNOTATIONS);
+		classes.addAll(SUPPORT_ANNOTATIONS);
+		return classes.stream().map(Class::getName).collect(Collectors.toSet());
+	}
 }

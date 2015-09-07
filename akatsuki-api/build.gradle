@@ -16,6 +16,7 @@ sourceCompatibility = '1.7'
 
 dependencies {
     provided 'com.google.android:android:4.1.1.4'
+    provided 'com.google.android:support-v4:r7'
 }
 
 apply from: file('../deploy-java.gradle')

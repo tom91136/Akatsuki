@@ -5,7 +5,7 @@ import android.os.Bundle;
 /**
  * For types not supported by Akatsuki, you can implement this interface and
  * either register it globally by annotating it with {@link TypeConverter} or
- * specify the converter directly using {@link Retained#converter()}
+ * specify the converter directly using {@link Def#value()}
  * 
  * @param <T>
  *            the target type

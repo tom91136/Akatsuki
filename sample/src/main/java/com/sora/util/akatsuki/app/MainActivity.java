@@ -8,26 +8,28 @@ import android.widget.EditText;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+import com.sora.util.akatsuki.Arg;
+import com.sora.util.akatsuki.DummyTypeConverter;
 import com.sora.util.akatsuki.IncludeClasses;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.Retained.RestorePolicy;
+import com.sora.util.akatsuki.Def;
 import com.sora.util.akatsuki.parceler.ParcelerSupport;
-
-import java.util.ArrayList;
 
 import akatsuki.util.sora.com.akatsuki.R;
 import butterknife.Bind;
 import butterknife.ButterKnife;
+
 @RetainConfig(restorePolicy = RestorePolicy.IF_NULL)
 @IncludeClasses(ParcelerSupport.class)
 public class MainActivity extends AppCompatActivity {
 
 	private static final String MY_KEY = "myString";
-	@Retained String myString;
+	@Retained @Arg @Def(DummyTypeConverter.class) String myString;
 	@Retained Float myFloat = 3F;
-	//@Retained ArrayList<String>[] aaa;
-	//@Retained String[][][] bbb ={};
+	// @Retained ArrayList<String>[] aaa;
+	// @Retained String[][][] bbb ={};
 
 	@Bind(R.id.persisted) EditText persisted;
 

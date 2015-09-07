@@ -15,6 +15,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
 
+import com.sora.util.akatsuki.Def;
 import com.sora.util.akatsuki.DummyTypeConverter;
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
@@ -41,7 +42,7 @@ public class TypeAnalyzerResolver {
 	private final SourceTreeModel treeModel;
 	private final ProcessorContext context;
 	private final TypeMirror dummyConverter;
-	TransformationContext transformationContext;
+	private final TransformationContext transformationContext;
 
 	public TypeAnalyzerResolver(List<TransformationTemplate> templates,
 			List<DeclaredConverterModel> models, SourceTreeModel treeModel,
@@ -58,11 +59,13 @@ public class TypeAnalyzerResolver {
 		CascadingTypeAnalyzer<?, ?, ?> strategy = null;
 		final TypeMirror mirror = element.refinedMirror();
 
-		// @Retained defaults to a dummy converter, we don't want that
-		DeclaredType typeConverter = element.typeConverter(context);
-		if (typeConverter != null
-				&& !transformationContext.utils().isSameType(typeConverter, dummyConverter, true)) {
-			strategy = new ConverterAnalyzer(transformationContext, typeConverter);
+		if (element.model().hasAnnotation(Def.class)) {
+			Def def = element.model().annotation(Def.class);
+			DeclaredType declaredType = context.utils().getClassFromAnnotationMethod(def::value);
+			// @Def defaults to a dummy converter, we don't want that
+			if (!context.utils().isSameType(declaredType, dummyConverter, true)) {
+				strategy = new ConverterAnalyzer(transformationContext, declaredType);
+			}
 		}
 
 		if (strategy == null) {
