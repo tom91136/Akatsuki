@@ -27,10 +27,8 @@ public @interface Arg {
 	String value() default "";
 
 	/**
-	 * Custom index for field processing order
+	 * Custom index for field processing order, defaults to code ordering
 	 */
 	int index() default NO_INDEX;
-
-
 
 }

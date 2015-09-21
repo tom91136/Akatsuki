@@ -1,5 +1,7 @@
 package com.sora.util.akatsuki;
 
+import java.lang.annotation.Annotation;
+
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.Service;
@@ -23,27 +25,43 @@ public class Internal {
 	 * to be used from classes that require access to a fresh
 	 * {@link BundleRetainer} instance
 	 *
-	 * @param fqcn
-	 *            the fully qualified class name of the instance
-	 * @param clazz
-	 *            the {@link Class} of the instance
 	 * @param <T>
 	 *            the type of the annotated instance
+	 * @param clazz
+	 *            the {@link Class} of the instance
+	 * @param type
 	 * @return the {@link BundleRetainer}
 	 */
 	@SuppressWarnings("unchecked")
-	public static <T> BundleRetainer<T> createRetainer(ClassLoader loader, RetainerCache cache,
-			String fqcn, Class<?> clazz) {
+	static <T> BundleRetainer<T> createRetainer(ClassLoader loader, RetainerCache cache,
+			Class<?> clazz, Class<? extends Annotation> type) {
 		final BundleRetainer<T> instance;
+		final String fqcn = clazz.getName();
 		try {
 			Class<? extends BundleRetainer> retainerClass = null;
-			if (cache != null)
+			// TODO we didn't cache Arg.class , implement it
+			if (cache != null && type != Arg.class)
 				retainerClass = cache.getCached(fqcn);
 			if (retainerClass == null) {
+				String className = null;
 				try {
-					retainerClass = (Class<? extends BundleRetainer>) Class
-							.forName(generateRetainerClassName(fqcn), true, loader);
+
+					if (type == Retained.class) {
+						className = generateRetainerClassName(fqcn);
+					} else if (type == Arg.class) {
+						className = generateRetainerClassName(
+								clazz.getPackage().getName() + ".Builders$" + clazz.getSimpleName()
+										+ "Builder$" + clazz.getSimpleName());
+					} else {
+						throw new AssertionError(
+								"Unable to create retainer for unknown class " + type);
+					}
+
+					retainerClass = (Class<? extends BundleRetainer>) Class.forName(className, true,
+							loader);
 				} catch (ClassNotFoundException ignored) {
+					Log.i(Akatsuki.TAG, "retainer class does not exist for fqcn " + className
+							+ " trying inheritance next");
 					// can't find it, moving on
 				}
 			}
@@ -75,7 +93,7 @@ public class Internal {
 		String generatedClassName = generateRetainerClassName(name);
 		try {
 			if (Akatsuki.loggingLevel == LoggingLevel.VERBOSE)
-				Log.i(Akatsuki.TAG, "traversing hieraichy to find retainer for class " + clazz);
+				Log.i(Akatsuki.TAG, "traversing hierarchy to find retainer for class " + clazz);
 			return Class.forName(generatedClassName, true, loader);
 		} catch (ClassNotFoundException e) {
 			return findClass(loader, clazz.getSuperclass());
@@ -89,27 +107,43 @@ public class Internal {
 	 * @param prefix
 	 *            the class name
 	 */
-	public static String generateRetainerClassName(CharSequence prefix) {
+	static String generateRetainerClassName(CharSequence prefix) {
 		return prefix + "$$" + BundleRetainer.class.getSimpleName();
 	}
 
 	public static abstract class ArgBuilder<T> {
 
-		protected final Bundle bundle;
-		protected final Class<T> targetClass;
+		protected Bundle bundle;
 
-		public ArgBuilder(Bundle bundle, Class<T> targetClass) {
+		protected abstract Class<T> targetClass();
+
+		protected Bundle bundle() {
+			return bundle;
+		}
+
+	}
+
+	public static class ClassArgBuilder<T> extends ArgBuilder<T> {
+
+		private final Class<T> targetClass;
+
+		public ClassArgBuilder(Bundle bundle, Class<T> targetClass) {
 			this.bundle = bundle;
 			this.targetClass = targetClass;
 		}
 
-		public ArgBuilder(Class<T> targetClass) {
-			this.targetClass = targetClass;
+		public ClassArgBuilder(Class<T> targetClass) {
 			this.bundle = new Bundle();
+			this.targetClass = targetClass;
+		}
+
+		@Override
+		protected Class<T> targetClass() {
+			return targetClass;
 		}
 	}
 
-	public static class FragmentConcludingBuilder<T> extends ArgBuilder<T> {
+	public static class FragmentConcludingBuilder<T> extends ClassArgBuilder<T> {
 
 		public FragmentConcludingBuilder(Bundle bundle, Class<T> targetClass) {
 			super(bundle, targetClass);
@@ -124,6 +158,7 @@ public class Internal {
 		// which is somewhat bad
 		@SuppressWarnings("unchecked")
 		public T build(Context context) {
+			Class<T> targetClass = targetClass();
 			if (targetClass.isAssignableFrom(Fragment.class))
 				return (T) Fragment.instantiate(context, targetClass.getName(), bundle);
 			else if (targetClass.isAssignableFrom(android.support.v4.app.Fragment.class)) {
@@ -142,7 +177,7 @@ public class Internal {
 
 	}
 
-	public static abstract class IntentConcludingBuilder<T> extends ArgBuilder<T> {
+	public static abstract class IntentConcludingBuilder<T> extends ClassArgBuilder<T> {
 
 		public IntentConcludingBuilder(Bundle bundle, Class<T> targetClass) {
 			super(bundle, targetClass);
@@ -157,7 +192,7 @@ public class Internal {
 		}
 
 		public Intent build(Context context) {
-			return build().setClass(context, targetClass);
+			return build().setClass(context, targetClass());
 		}
 
 	}

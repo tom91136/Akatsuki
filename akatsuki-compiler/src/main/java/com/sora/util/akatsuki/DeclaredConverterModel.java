@@ -16,24 +16,19 @@
 
 package com.sora.util.akatsuki;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import javax.lang.model.type.DeclaredType;
 
 /**
- * Allows the annotated {@link TypeConverter} to be accepted globally,
- * {@link With} takes precedence when specified
+ * Project: Akatsuki
+ * Created by Tom on 7/29/2015.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface DeclaredConverter {
+public class DeclaredConverterModel {
 
-	/**
-	 * Defines how types are matched, see {@link TypeFilter} for more details on
-	 * how to use
-	 *
-	 */
-	TypeFilter[]value();
+	public final DeclaredType converter;
+	public final TypeFilter[] filters;
 
+	public DeclaredConverterModel(DeclaredType converter, TypeFilter[] filters) {
+		this.converter = converter;
+		this.filters = filters;
+	}
 }

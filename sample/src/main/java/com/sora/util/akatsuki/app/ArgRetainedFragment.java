@@ -6,8 +6,11 @@ import android.support.v4.app.Fragment;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.Arg;
+import com.sora.util.akatsuki.ArgConfig;
+import com.sora.util.akatsuki.ArgConfig.BuilderType;
 import com.sora.util.akatsuki.Retained;
 
+@ArgConfig(type = BuilderType.CHECKED)
 public class ArgRetainedFragment extends Fragment {
 
 	@Arg int a;

@@ -1,11 +1,11 @@
 package com.sora.util.akatsuki;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.SparseArray;
-
-import java.io.Serializable;
-import java.util.ArrayList;
 
 /**
  * A convenience class for you to build {@link Bundle}s with a chained builder
