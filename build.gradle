@@ -15,7 +15,7 @@ ext {
     userName = 'Tom Lin'
     userEmail = 'tom91136@gmail.com'
     publishedGroupId = 'com.sora.util.akatsuki'
-    publishVersion = '0.0.3'
+    publishVersion = '0.0.3.4'
     desc = 'Akatsuki is an Android library that handles state restoration via annotations.'
     publishName = 'Akatsuki'
     siteUrl = 'https://github.com/tom91136/Akatsuki'

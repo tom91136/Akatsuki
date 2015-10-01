@@ -19,7 +19,7 @@ import java.util.Set;
 //@formatter:off
 @SuppressWarnings("unused")
 @TransformationTemplate(
-		save = @StatementTemplate("{{bundle}}.putParcelable({{keyName}} == null?null:{{keyName}}, org.parceler.Parcels.wrap(" +
+		save = @StatementTemplate("{{bundle}}.putParcelable({{keyName}}, {{keyName}}==null?null:org.parceler.Parcels.wrap(" +
 				                          "com.sora.util.akatsuki.parceler.ParcelerSupport.resolveInterfaceClass(" +
 				                          "{{fieldName}}), {{fieldName}}))"),
 		restore = @StatementTemplate(type = Type.ASSIGNMENT,
