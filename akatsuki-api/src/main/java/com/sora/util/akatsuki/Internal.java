@@ -182,9 +182,9 @@ public class Internal {
 		@SuppressWarnings("unchecked")
 		public T build(Context context) {
 			Class<? super T> targetClass = targetClass();
-			if (targetClass.isAssignableFrom(Fragment.class))
+			if (Fragment.class.isAssignableFrom(targetClass))
 				return (T) Fragment.instantiate(context, targetClass.getName(), bundle);
-			else if (targetClass.isAssignableFrom(android.support.v4.app.Fragment.class)) {
+			else if (android.support.v4.app.Fragment.class.isAssignableFrom(targetClass)) {
 				return (T) android.support.v4.app.Fragment.instantiate(context,
 						targetClass.getName(), bundle);
 			} else {
