@@ -143,7 +143,7 @@ public class Internal {
 
 		protected Bundle bundle;
 
-		protected abstract Class<T> targetClass();
+		protected abstract Class<? super T> targetClass();
 
 		protected Bundle bundle() {
 			return bundle;
@@ -157,22 +157,22 @@ public class Internal {
 
 	public static class ClassArgBuilder<T> extends ArgBuilder<T> {
 
-		private final Class<T> targetClass;
+		private final Class<? super T> targetClass;
 
-		public ClassArgBuilder(Bundle bundle, Class<T> targetClass) {
+		public ClassArgBuilder(Bundle bundle, Class<? super T> targetClass) {
 			this.bundle = bundle;
 			this.targetClass = targetClass;
 		}
 
 		@Override
-		protected Class<T> targetClass() {
+		protected Class<? super T> targetClass() {
 			return targetClass;
 		}
 	}
 
 	public static class FragmentConcludingBuilder<T> extends ClassArgBuilder<T> {
 
-		public FragmentConcludingBuilder(Bundle bundle, Class<T> targetClass) {
+		public FragmentConcludingBuilder(Bundle bundle, Class<? super T> targetClass) {
 			super(bundle, targetClass);
 		}
 
@@ -181,7 +181,7 @@ public class Internal {
 		// which is somewhat bad
 		@SuppressWarnings("unchecked")
 		public T build(Context context) {
-			Class<T> targetClass = targetClass();
+			Class<? super T> targetClass = targetClass();
 			if (targetClass.isAssignableFrom(Fragment.class))
 				return (T) Fragment.instantiate(context, targetClass.getName(), bundle);
 			else if (targetClass.isAssignableFrom(android.support.v4.app.Fragment.class)) {
@@ -202,7 +202,7 @@ public class Internal {
 
 	public static abstract class IntentConcludingBuilder<T> extends ClassArgBuilder<T> {
 
-		public IntentConcludingBuilder(Bundle bundle, Class<T> targetClass) {
+		public IntentConcludingBuilder(Bundle bundle, Class<? super T> targetClass) {
 			super(bundle, targetClass);
 		}
 
@@ -219,7 +219,7 @@ public class Internal {
 	public static class ActivityConcludingBuilder<T extends Activity>
 			extends IntentConcludingBuilder<T> {
 
-		public ActivityConcludingBuilder(Bundle bundle, Class<T> targetClass) {
+		public ActivityConcludingBuilder(Bundle bundle, Class<? super T> targetClass) {
 			super(bundle, targetClass);
 		}
 
@@ -236,7 +236,7 @@ public class Internal {
 	public static class ServiceConcludingBuilder<T extends Service>
 			extends IntentConcludingBuilder<T> {
 
-		public ServiceConcludingBuilder(Bundle bundle, Class<T> targetClass) {
+		public ServiceConcludingBuilder(Bundle bundle, Class<? super T> targetClass) {
 			super(bundle, targetClass);
 		}
 

@@ -126,13 +126,15 @@ public class ArgumentBuilderModel extends BaseModel
 			boolean withBundle) {
 		MethodSpec.Builder builder = MethodSpec.methodBuilder(model.simpleName());
 		if (withBundle) {
-			builder.addCode("return new $L(bundle);", builderSpec.name).addParameter(bundleTypeName,
-					"bundle");
+			builder.addCode("return new $L<>(bundle);", builderSpec.name)
+					.addParameter(bundleTypeName, "bundle");
 		} else {
-			builder.addCode("return new $L(new Bundle());", builderSpec.name);
+			builder.addCode("return new $L<>(new Bundle());", builderSpec.name);
 		}
-		builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC).returns(ClassName
-				.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME, builderSpec.name));
+		ClassName className = ClassName.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME,
+				builderSpec.name);
+		builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC).returns(ParameterizedTypeName.get(
+				className, ClassName.get(model.originatingElement()), TypeVariableName.get("?")));
 		return builder;
 	}
 
@@ -147,9 +149,12 @@ public class ArgumentBuilderModel extends BaseModel
 		return model.simpleName() + BUILDER_CLASS_SUFFIX;
 	}
 
-	private ClassName createBuilderClassName(SourceClassModel model) {
-		return ClassName.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME,
+	private ParameterizedTypeName createBuilderClassName(SourceClassModel model,
+			TypeName targetClassTypeName, TypeName builderClassTypeName) {
+
+		ClassName rawType = ClassName.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME,
 				createBuilderName(model));
+		return ParameterizedTypeName.get(rawType, targetClassTypeName, builderClassTypeName);
 	}
 
 	private ClassName createBuilderClassName(String modelFqpn, String builderName) {
@@ -277,7 +282,8 @@ public class ArgumentBuilderModel extends BaseModel
 
 		public ParameterizedTypeName concludingBuilderTypeName() {
 			return ParameterizedTypeName.get(
-					ClassName.get((TypeElement) concludingBuilder.asElement()), targetClassName);
+					ClassName.get((TypeElement) concludingBuilder.asElement()),
+					TypeVariableName.get("T"));
 		}
 
 		public ClassName get(String name) {
@@ -336,20 +342,31 @@ public class ArgumentBuilderModel extends BaseModel
 			// TypeVariableName builderTypeName = TypeVariableName.get("BT",
 			// builderClassName);
 
+			String targetClassTypeVariable = "T";
+			// TODO what if out target class has some generic parameter of
+			// <A,B...>?
+
+			String builderTypeVariable = "BT";
+			TypeName builderClassName = ParameterizedTypeName.get(
+					createBuilderClassName(model.builderFqpn, model.builderSimpleName),
+					TypeVariableName.get(targetClassTypeVariable),
+					TypeVariableName.get(builderTypeVariable));
+
+			builderTypeBuilder.addTypeVariable(
+					TypeVariableName.get(targetClassTypeVariable, model.targetClassName));
+
+			builderTypeBuilder
+					.addTypeVariable(TypeVariableName.get(builderTypeVariable, builderClassName));
+
 			if (superClass.isPresent()) {
 				// implement our parent
-
-				builderTypeBuilder.superclass(createBuilderClassName(superClass.get()));
+				builderTypeBuilder.superclass(createBuilderClassName(superClass.get(),
+						TypeVariableName.get(targetClassTypeVariable),
+						TypeVariableName.get(builderTypeVariable)));
 			} else {
 				// or inherit the class containing our build method
 				builderTypeBuilder.superclass(model.concludingBuilderTypeName());
 			}
-
-			String typeName = "BT";
-			TypeName builderClassName = ParameterizedTypeName.get(
-					createBuilderClassName(model.builderFqpn, model.builderSimpleName),
-					TypeVariableName.get(typeName));
-			builderTypeBuilder.addTypeVariable(TypeVariableName.get(typeName, builderClassName));
 
 			builderTypeBuilder.addMethod(
 					MethodSpec.constructorBuilder().addParameter(bundleTypeName, "bundle")
@@ -392,7 +409,7 @@ public class ArgumentBuilderModel extends BaseModel
 						.addModifiers(Modifier.PUBLIC)
 						.addParameter(ClassName.get(field.type()), setterName)
 						.addCode(analysis.emit());
-				setBuilderReturnSpec(TypeVariableName.get(typeName), setterBuilder);
+				setBuilderReturnSpec(TypeVariableName.get(builderTypeVariable), setterBuilder);
 				builderTypeBuilder.addMethod(setterBuilder.build());
 
 				if (appendCheck && !arg.optional()) {
