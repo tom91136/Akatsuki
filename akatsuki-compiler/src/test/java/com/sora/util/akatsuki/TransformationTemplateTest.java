@@ -13,14 +13,14 @@ import org.junit.Test;
 
 import android.os.Bundle;
 
-import com.sora.util.akatsuki.Field.RetainedField;
+import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
 import com.sora.util.akatsuki.TransformationTemplate.Execution;
 import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
 import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 
-public class TransformationTemplateTest extends CodeGenerationTestBase {
+public class TransformationTemplateTest extends RetainedStateTestBase {
 
 	@Test
 	public void testClassConstraint() {
@@ -151,13 +151,14 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 				Modifier.PUBLIC).fields(
 						new RetainedField(StringObject.class, "a", "new " + objectFqcn + "(\"A\")")
 								.createFieldSpec());
-		testClass.builderTransformer((builder, source) -> builder
-				.addAnnotation(createTransformationTemplate(bound, staticClass, constraints)));
+		testClass.appendTransformation((builder, source) -> builder.addAnnotation
+				                                                            (createTransformationTemplate(bound, staticClass, constraints)));
 
-		final TestEnvironment environment = new TestEnvironment(this, testClass);
+		final RetainedStateTestEnvironment environment = new RetainedStateTestEnvironment(this,
+				testClass);
 
-		environment.invokeSaveAndRestore();
-		environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
+		environment.tester().invokeSaveAndRestore();
+		environment.tester().testSaveRestoreInvocation(n -> true, BundleRetainerTester.CLASS,
 				Collections.singleton(new RetainedField(String.class, "a")));
 	}
 
@@ -179,9 +180,8 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 
 			final String converterName = generateClassName();
 			JavaSource converter = new JavaSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
-					.builderTransformer(
-							(builder, source) -> builder.superclass(StringObjectTypeConverter.class)
-									.addAnnotation(converterSpec));
+					.appendTransformation((builder, source) -> builder.superclass
+							                                                   (StringObjectTypeConverter.class).addAnnotation(converterSpec));
 			sources.add(converter);
 
 		} else {
@@ -193,8 +193,9 @@ public class TransformationTemplateTest extends CodeGenerationTestBase {
 				Modifier.PUBLIC).fields(fieldBuilder.build());
 		// out test class always goes in front
 		sources.add(0, testClass);
-		final TestEnvironment environment = new TestEnvironment(this, sources);
-		environment.invokeSaveAndRestore();
+		final RetainedStateTestEnvironment environment = new RetainedStateTestEnvironment(this,
+				sources);
+		environment.tester().invokeSaveAndRestore();
 	}
 
 	public static class StringObjectTypeConverter implements TypeConverter<StringObject> {

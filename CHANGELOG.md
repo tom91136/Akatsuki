@@ -1,3 +1,22 @@
+
+0.1.0 *(2015/10/18)*
+----------------------------
+Akatsuki now takes care of the entire IPC, that includes the already supported state restoration plus argument passing!
+
+Additions
+
+ - Argument passing for any object (Fragment, Activity, Service, etc)
+ - Compile-time checked builders
+ - Free `BundleBuilder` 
+ - Proguard rules added (in README)
+ 
+Changes
+
+ - `TypeConverter` is moved into a new annotation `@With` to accommodate `@Arg`
+ 
+Check out the Wiki for more information on how to pass arguments using `@Arg` and the builder
+  
+
 0.0.3 *(2015/08/27)*
 ----------------------------
 

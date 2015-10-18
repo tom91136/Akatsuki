@@ -37,11 +37,11 @@ import com.squareup.javapoet.WildcardTypeName;
 
 public class RetainerMappingModel extends BaseModel implements CodeGenerator<TypeSpec> {
 
-	private final List<BundleRetainerModel> models;
+	private final List<RetainedStateModel> models;
 	private final Collection<? extends Element> rootElements;
 	private final Optimisation optimisation;
 
-	protected RetainerMappingModel(ProcessorContext context, List<BundleRetainerModel> models,
+	protected RetainerMappingModel(ProcessorContext context, List<RetainedStateModel> models,
 			Collection<? extends Element> rootElements, Optimisation optimisation) {
 		super(context);
 		this.models = models;
@@ -74,14 +74,14 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 
 		final CodeBlock.Builder builder = CodeBlock.builder();
 
-		Consumer<Map<String, BundleRetainerModel>> modelToMapConsumer = m -> {
-			for (Entry<String, BundleRetainerModel> entry : m.entrySet()) {
+		Consumer<Map<String, RetainedStateModel>> modelToMapConsumer = m -> {
+			for (Entry<String, RetainedStateModel> entry : m.entrySet()) {
 				builder.add("CACHE.put($S, $L);\n", entry.getKey(),
-						entry.getValue().generatedClassInfo().fullyQualifiedClassName() + ".class");
+						entry.getValue().classInfo().fullyQualifiedClassName() + ".class");
 			}
 		};
 
-		Map<String, BundleRetainerModel> modelMap = models.stream().collect(
+		Map<String, RetainedStateModel> modelMap = models.stream().collect(
 				Collectors.toMap(m -> m.classModel().fullyQualifiedName(), Function.identity()));
 
 		if (optimisation == Optimisation.ALL || optimisation == Optimisation.ANNOTATED) {
@@ -117,13 +117,13 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 		JavaFile.builder(Akatsuki.RETAINER_CACHE_PACKAGE, createModel()).build().writeTo(filer);
 	}
 
-	private Map<String, BundleRetainerModel> findAllTypes(final Element element,
-			final Map<String, BundleRetainerModel> referenceMap) {
-		Map<String, BundleRetainerModel> modelMap = new HashMap<>();
-		element.accept(new SimpleElementVisitor8<Void, Map<String, BundleRetainerModel>>() {
+	private Map<String, RetainedStateModel> findAllTypes(final Element element,
+			final Map<String, RetainedStateModel> referenceMap) {
+		Map<String, RetainedStateModel> modelMap = new HashMap<>();
+		element.accept(new SimpleElementVisitor8<Void, Map<String, RetainedStateModel>>() {
 
 			@Override
-			public Void visitType(TypeElement e, Map<String, BundleRetainerModel> map) {
+			public Void visitType(TypeElement e, Map<String, RetainedStateModel> map) {
 				if (e.getKind() == ElementKind.CLASS) {
 					// only process class that isn't in the map
 					if (!referenceMap.containsKey(e.getQualifiedName().toString())) {
@@ -138,8 +138,8 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 		return modelMap;
 	}
 
-	private Optional<BundleRetainerModel> findInheritedModel(Element element,
-			Collection<BundleRetainerModel> models) {
+	private Optional<RetainedStateModel> findInheritedModel(Element element,
+			Collection<RetainedStateModel> models) {
 		if (element == null || element.getKind() != ElementKind.CLASS
 				|| !(element instanceof TypeElement))
 			return Optional.empty();

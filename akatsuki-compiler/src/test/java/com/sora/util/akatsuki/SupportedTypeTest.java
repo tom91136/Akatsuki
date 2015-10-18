@@ -32,11 +32,11 @@ import android.util.SparseArray;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
-import com.sora.util.akatsuki.CodeGenerationTestBase.TestEnvironment.AccessorKeyPair;
-import com.sora.util.akatsuki.Field.RetainedField;
+import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
+import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester.AccessorKeyPair;
 import com.squareup.javapoet.ClassName;
 
-public class SupportedTypeTest extends CodeGenerationTestBase {
+public class SupportedTypeTest extends RetainedStateTestBase {
 
 	public static class MySerializable implements Serializable {
 
@@ -66,12 +66,12 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	public void testUnsupportedType() {
 		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
 				.fields(field(ClassName.get(Activity.class), "badType", Retained.class));
-		new TestEnvironment(this, source);
+		new RetainedStateTestEnvironment(this, source);
 	}
 
 	@Test
 	public void testPrimitives() {
-		testSimpleTypes(t -> true, TestEnvironment.CLASS, null, PRIMITIVES);
+		testSimpleTypes(t -> true, BundleRetainerTester.CLASS, null, PRIMITIVES);
 	}
 
 	// TODO we got some wicked problem with boxed types, the compiled retainer
@@ -85,7 +85,7 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 				.put(Byte.class, "0").put(Short.class, "0").put(Integer.class, "0")
 				.put(Long.class, "0L").put(Float.class, "0.0F").put(Double.class, "0.0D")
 				.put(Character.class, "\'a\'").put(Boolean.class, "false").build();
-		testSimpleTypes(t -> true, TestEnvironment.CLASS, f -> field(f.typeName(), f.name,
+		testSimpleTypes(t -> true, BundleRetainerTester.CLASS, f -> field(f.typeName(), f.name,
 				Retained.class, defaultValueMap.getOrDefault(f.clazz, null)), classes);
 
 	}
@@ -94,12 +94,12 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	public void testPrimitiveArrays() {
 		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(this::toArrayClass)
 				.toArray(Class<?>[]::new);
-		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null, classes);
+		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS, null, classes);
 	}
 
 	@Test
 	public void testSupportedSimpleTypes() {
-		testSimpleTypes(n -> true, TestEnvironment.CLASS, null, SUPPORTED_SIMPLE_CLASSES);
+		testSimpleTypes(n -> true, BundleRetainerTester.CLASS, null, SUPPORTED_SIMPLE_CLASSES);
 	}
 
 	@Test
@@ -116,13 +116,13 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 		// <T> instead of Parcelable
 		for (Class<? extends Parcelable> type : PARCELABLES_CLASSES) {
 			// filter out the method [get|set]Parcelable and work with that only
-			testSimpleTypes(n -> n.endsWith("Parcelable"), TestEnvironment.ALWAYS, null, type);
+			testSimpleTypes(n -> n.endsWith("Parcelable"), BundleRetainerTester.ALWAYS, null, type);
 		}
 	}
 
 	@Test
 	public void testSupportedArrayTypes() {
-		testSimpleTypes(n -> n.contains("Array"), TestEnvironment.CLASS, null,
+		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS, null,
 				SUPPORTED_ARRAY_CLASSES);
 	}
 
@@ -135,14 +135,14 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 
 		for (Class<?> type : classes) {
 			// the type of the accessor must be assignable to the field's
-			testSimpleTypes(n -> n.contains("Array"), TestEnvironment.ASSIGNABLE, null,
+			testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.ASSIGNABLE, null,
 					toArrayClass(type));
 		}
 	}
 
 	@Test
 	public void testSparseArrayParcelableType() {
-		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), TestEnvironment.CLASS,
+		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), BundleRetainerTester.CLASS,
 				null, SparseArray.class, PARCELABLES_CLASSES);
 	}
 
@@ -150,8 +150,8 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	public void testParcelableArrayListType() {
 		// parcelable arraylist also requires special care because the generic
 		// argument of the setter is a wildcard (<? extends Parcelable>)
-		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), TestEnvironment.ALWAYS, null,
-				ArrayList.class, PARCELABLES_CLASSES);
+		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), BundleRetainerTester.ALWAYS,
+				null, ArrayList.class, PARCELABLES_CLASSES);
 
 	}
 
@@ -231,12 +231,12 @@ public class SupportedTypeTest extends CodeGenerationTestBase {
 	public void testFieldHiding() {
 		final RetainedField first = new RetainedField(String.class, "a");
 		final RetainedField second = new RetainedField(int.class, "a");
-		final TestEnvironment environment = testFieldHiding(first, second);
-		environment.invokeSaveAndRestore();
-		final AccessorKeyPair firstKeys = environment.captureTestCaseKeysWithField(first, n -> true,
-				TestEnvironment.CLASS);
-		final AccessorKeyPair secondKeys = environment.captureTestCaseKeysWithField(second,
-				n -> true, TestEnvironment.CLASS);
+		final RetainedStateTestEnvironment environment = testFieldHiding(first, second);
+		environment.tester().invokeSaveAndRestore();
+		final AccessorKeyPair firstKeys = environment.tester().captureTestCaseKeysWithField(first,
+				n -> true, BundleRetainerTester.CLASS);
+		final AccessorKeyPair secondKeys = environment.tester().captureTestCaseKeysWithField(second,
+				n -> true, BundleRetainerTester.CLASS);
 		firstKeys.assertSameKeyUsed();
 		secondKeys.assertSameKeyUsed();
 		firstKeys.assertNotTheSame(secondKeys);

@@ -1,15 +1,22 @@
 package com.sora.util.akatsuki.models;
 
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
+import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleElementVisitor8;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
@@ -20,6 +27,7 @@ public class SourceClassModel extends BaseModel {
 
 	private final TypeElement enclosingClass;
 	private SourceClassModel directSuperModel;
+	private Set<SourceClassModel> subTypeModels;
 	final List<FieldModel> fields = new ArrayList<>();
 
 	SourceClassModel(ProcessorContext context, TypeElement enclosingClass) {
@@ -27,7 +35,13 @@ public class SourceClassModel extends BaseModel {
 		this.enclosingClass = enclosingClass;
 	}
 
-	void findSuperClass(Map<String, SourceClassModel> map) {
+	void initialize(Map<String, SourceClassModel> map, RoundEnvironment environment) {
+		findSuperClass(map);
+		findSubTypes(map, environment);
+		markHiddenFields();
+	}
+
+	private void findSuperClass(Map<String, SourceClassModel> map) {
 		TypeElement superClass = enclosingClass;
 		final TypeMirror objectMirror = context.utils().of(Object.class);
 		while ((superClass.getKind() == ElementKind.CLASS && !superClass.equals(objectMirror))) {
@@ -45,7 +59,32 @@ public class SourceClassModel extends BaseModel {
 		}
 	}
 
-	void markHiddenFields() {
+	private void findSubTypes(Map<String, SourceClassModel> map, RoundEnvironment environment) {
+		Set<SourceClassModel> models = new HashSet<>();
+		for (Element root : environment.getRootElements()) {
+			root.accept(new SimpleElementVisitor8<Void, Set<SourceClassModel>>() {
+				@Override
+				public Void visitType(TypeElement element, Set<SourceClassModel> models) {
+					if (element.getKind() == ElementKind.CLASS && element != enclosingClass
+							&& context.utils().isAssignable(element.asType(), mirror(), true)) {
+						SourceClassModel existing = map.get(element.getQualifiedName().toString());
+						if (existing != null) {
+							models.add(existing);
+						} else {
+							SourceClassModel model = new SourceClassModel(context, element);
+							models.add(model);
+							model.initialize(map, environment);
+						}
+						element.getEnclosedElements().forEach(e -> e.accept(this, models));
+					}
+					return null;
+				}
+			}, models);
+		}
+		this.subTypeModels = Collections.unmodifiableSet(models);
+	}
+
+	private void markHiddenFields() {
 		// set colliding fields with the proper flag
 		fields.stream()
 				.filter(model -> directSuperModel != null
@@ -91,8 +130,26 @@ public class SourceClassModel extends BaseModel {
 		return enclosingClass;
 	}
 
-	public SourceClassModel directSuperModel() {
-		return directSuperModel;
+	public <A extends Annotation> Optional<A> annotation(Class<A> annotationClass) {
+		return Optional.ofNullable(enclosingClass.getAnnotation(annotationClass));
+	}
+
+	public Optional<SourceClassModel> directSuperModel() {
+		return Optional.ofNullable(directSuperModel);
+	}
+
+	public Optional<SourceClassModel> directSuperModelWithAnnotation(
+			Class<? extends Annotation> annotationClass) {
+		return directSuperModel != null && directSuperModel.containsAnyAnnotation(annotationClass)
+				? directSuperModel() : Optional.empty();
+	}
+
+	public boolean containsAnyAnnotation(Class<? extends Annotation> annotationClass) {
+		return fields.stream().anyMatch(fm -> fm.annotation(annotationClass).isPresent());
+	}
+
+	public Set<SourceClassModel> subTypeModels() {
+		return subTypeModels;
 	}
 
 	public TypeMirror mirror() {
@@ -118,6 +175,10 @@ public class SourceClassModel extends BaseModel {
 	@Override
 	public String toString() {
 		return MoreObjects.toStringHelper(this).add("enclosingClass", enclosingClass)
-				.add("directSuperModel", directSuperModel).add("fields", fields).toString();
+				.add("directSuperModel", directSuperModel)
+				.add("subTypeModels",
+						Arrays.toString(subTypeModels.stream()
+								.map(SourceClassModel::fullyQualifiedName).toArray(String[]::new)))
+				.add("fields", fields).toString();
 	}
 }

@@ -15,7 +15,7 @@ import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.FieldSpec;
 
 @RunWith(Enclosed.class)
-public class FieldValidationTest extends TestBase {
+public class FieldValidationTest {
 
 	@RunWith(Theories.class)
 	public static class FieldValidTest extends TestBase {

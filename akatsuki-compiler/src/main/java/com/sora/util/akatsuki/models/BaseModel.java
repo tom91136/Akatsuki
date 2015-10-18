@@ -12,6 +12,6 @@ public class BaseModel {
 
 	// TODO use me
 	public void initialize() throws Exception {
-		// not everyone needs to initialization
+		// not everyone needs initialization
 	}
 }

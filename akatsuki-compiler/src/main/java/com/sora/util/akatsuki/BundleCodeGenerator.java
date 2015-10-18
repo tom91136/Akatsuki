@@ -20,11 +20,8 @@ import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.InvocationType;
 import com.sora.util.akatsuki.analyzers.Element;
 import com.sora.util.akatsuki.models.ClassInfo;
 import com.sora.util.akatsuki.models.FieldModel;
-import com.sora.util.akatsuki.models.GenerationTargetModel;
 import com.sora.util.akatsuki.models.SourceClassModel;
-import com.sora.util.akatsuki.models.SourceTreeModel;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.MethodSpec.Builder;
 import com.squareup.javapoet.ParameterSpec;
@@ -32,7 +29,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
-public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
+public class BundleCodeGenerator implements CodeGenerator<TypeSpec> {
 
 	public ClassInfo generatedClassInfo() {
 		return generatedClassInfo;
@@ -51,21 +48,23 @@ public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
 	}
 
 	private final ClassInfo generatedClassInfo;
+	private final ProcessorContext context;
+	private final SourceClassModel classModel;
 	private final TypeAnalyzerResolver resolver;
 	private final Optional<Predicate<FieldModel>> fieldModelPredicate;
 	private final EnumSet<Action> actions;
 	private final Optional<FieldTransformation> fieldTransformation;
 
-	BundleRetainerModel(ProcessorContext context, SourceClassModel classModel,
-			SourceTreeModel treeModel, TypeAnalyzerResolver resolver,
-			Optional<Predicate<FieldModel>> fieldModelPredicate, EnumSet<Action> action,
-			Optional<FieldTransformation> fieldTransformation) {
-		super(context, classModel, treeModel);
+	BundleCodeGenerator(ProcessorContext context, SourceClassModel classModel,
+			TypeAnalyzerResolver resolver, Optional<Predicate<FieldModel>> fieldModelPredicate,
+			EnumSet<Action> action, Optional<FieldTransformation> fieldTransformation) {
+		this.context = context;
+		this.classModel = classModel;
 		this.resolver = resolver;
 		this.fieldModelPredicate = fieldModelPredicate;
 		this.actions = action;
 		this.fieldTransformation = fieldTransformation;
-		this.generatedClassInfo = classModel().asClassInfo().transform(null,
+		this.generatedClassInfo = classModel.asClassInfo().transform(null,
 				Internal::generateRetainerClassName);
 	}
 
@@ -76,7 +75,7 @@ public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
 
 		final SimpleBundleContext bundleContext = new SimpleBundleContext(sourceName, bundleName);
 
-		final ClassName sourceClassName = ClassName.get(classModel().originatingElement());
+		final ClassName sourceClassName = ClassName.get(classModel.originatingElement());
 
 		TypeVariableName actualClassCapture = TypeVariableName.get("T", sourceClassName);
 
@@ -97,14 +96,14 @@ public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
 					.addModifiers(Modifier.PUBLIC).returns(void.class).addParameter(sourceSpec)
 					.addParameter(bundleSpec);
 			actionBuilderMap.put(action, saveMethodBuilder);
-			if (classModel().directSuperModel() != null) {
+			if (classModel.directSuperModel().isPresent()) {
 				String superInvocation = "super.$L($L, $L)";
 				saveMethodBuilder.addStatement(superInvocation, action.methodName, sourceName,
 						bundleName);
 			}
 		}
 
-		List<Element<TypeMirror>> elements = classModel().fields().stream().map(Element::new)
+		List<Element<TypeMirror>> elements = classModel.fields().stream().map(Element::new)
 				.collect(Collectors.toList());
 
 		EnumSet<Action> emptyActions = EnumSet.complementOf(this.actions);
@@ -149,10 +148,12 @@ public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
 			typeSpecBuilder.addMethod(builder.build());
 		}
 
-		if (classModel().directSuperModel() != null) {
+		Optional<SourceClassModel> superModel = classModel.directSuperModel();
 
-			ClassInfo superClassModel = classModel().directSuperModel().asClassInfo()
-					.transform(null, Internal::generateRetainerClassName);
+		if (superModel.isPresent()) {
+
+			ClassInfo superClassModel = superModel.get().asClassInfo().transform(null,
+					Internal::generateRetainerClassName);
 
 			final ClassName className = ClassName.get(superClassModel.fullyQualifiedPackageName,
 					superClassModel.className);
@@ -169,9 +170,7 @@ public class BundleRetainerModel extends GenerationTargetModel<TypeSpec> {
 
 	@Override
 	public void writeSourceToFile(Filer filer) throws IOException {
-		JavaFile javaFile = JavaFile
-				.builder(generatedClassInfo.fullyQualifiedPackageName, createModel()).build();
-		javaFile.writeTo(filer);
+		throw new RuntimeException("BundleCodeGenerator cannot be written to a file directly!");
 	}
 
 	public interface FieldTransformation {

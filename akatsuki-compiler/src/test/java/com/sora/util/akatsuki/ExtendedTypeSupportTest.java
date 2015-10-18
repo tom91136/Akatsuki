@@ -10,15 +10,18 @@ import org.junit.Test;
 
 import android.os.Parcelable;
 
-public class ExtendedTypeSupportTest extends CodeGenerationTestBase {
+import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
+
+public class ExtendedTypeSupportTest extends RetainedStateTestBase {
 
 	@Test
 	public void testArrayTypes() {
-		testSimpleTypes(n -> true, TestEnvironment.CLASS, null, String[].class);
-		testSimpleTypes(n -> true, TestEnvironment.CLASS,
+		testSimpleTypes(n -> true, BundleRetainerTester.CLASS, null, String[].class);
+		testSimpleTypes(n -> true, BundleRetainerTester.CLASS,
 				f -> field(f.typeName(), "a", Retained.class), String[][][][][].class);
 
-		testTypes(n -> true, TestEnvironment.CLASS, f -> field(f.typeName(), "b", Retained.class),
+		testTypes(n -> true, BundleRetainerTester.CLASS,
+				f -> field(f.typeName(), "b", Retained.class),
 				new Field(ArrayList[].class, String.class));
 	}
 
@@ -30,7 +33,6 @@ public class ExtendedTypeSupportTest extends CodeGenerationTestBase {
 				List.class, Parcelable.class);
 
 	}
-
 
 	@Test
 	public void testArrayListTypes() {

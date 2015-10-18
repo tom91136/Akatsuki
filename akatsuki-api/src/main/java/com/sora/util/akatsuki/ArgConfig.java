@@ -7,8 +7,7 @@ public @interface ArgConfig {
 	enum BuilderType {
 
 		/**
-		 * Ordered and chained builder, this is the recommended builder for
-		 * general usage<br>
+		 * Fluent builder, this is the recommended builder for general usage<br>
 		 * EX:<br>
 		 * {@code a(1).b(2).c(3)}, where {@code a()} returns a class with only
 		 * {@code b()} visible <br>
@@ -16,26 +15,26 @@ public @interface ArgConfig {
 		 * forbid you from omitting mandatory args
 		 *
 		 */
-		ORDERED(ReturnType.SUBCLASSED,
-				Check.NONE), /**
-								 * Builder returns itself for chaining, no
-								 * ordering is enforced, checked is done at
-								 * runtime<br>
-								 * EX:<br>
-								 * {@code }a(2).b(2).a(1).c(3) } , notice that
-								 * repeated args and unordered invocation are
-								 * allowed<br>
-								 * When a mandatory field is omitted, an
-								 * {@link IllegalArgumentException} is thrown
-								 */
+		// FLUENT(ReturnType.SUBCLASSED,
+		// Check.NONE), /**
+		// * Builder returns itself for chaining, no
+		// * ordering is enforced, checked is done at
+		// * runtime<br>
+		// * EX:<br>
+		// * {@code }a(2).b(2).a(1).c(3) } , notice that
+		// * repeated args and unordered invocation are
+		// * allowed<br>
+		// * When a mandatory field is omitted, an
+		// * {@link IllegalArgumentException} is thrown
+		// */
 		CHAINED_CHECKED(ReturnType.CHAINED,
 				Check.RUNTIME), /**
-								 * Like {@link #ORDERED} but does not check the
-								 * args at runtime
+								 * Builder setters returns itself, checking is
+								 * done at runtime
 								 */
 		CHAINED_UNCHECKED(ReturnType.CHAINED,
 				Check.NONE), /**
-								 * Builder returns void, behaves like
+								 * Builder setters return void, behaves like
 								 * {@link #CHAINED_CHECKED} but without chaining
 								 */
 		CHECKED(ReturnType.VOID,
@@ -70,7 +69,7 @@ public @interface ArgConfig {
 	 * Specifies what type of builder will be genrerated, see
 	 * {@link ArgConfig.BuilderType} for all supported types
 	 */
-	BuilderType type() default BuilderType.ORDERED;
+	BuilderType type() default BuilderType.CHAINED_CHECKED;
 
 	@interface BuilderNamingRules {
 
@@ -94,7 +93,7 @@ public @interface ArgConfig {
 	 * and the second rule to append
 	 *
 	 */
-	BuilderNamingRules[]namingRules() default {};
+	// BuilderNamingRules[]namingRules() default {};
 
 	enum Sort {
 		CODE, INDEX, LEXICOGRAPHICAL, RANDOM

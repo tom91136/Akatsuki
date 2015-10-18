@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -26,7 +24,6 @@ import javax.tools.Diagnostic.Kind;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import com.sora.util.akatsuki.BundleRetainerModel.Action;
 import com.sora.util.akatsuki.RetainConfig.Optimisation;
 import com.sora.util.akatsuki.Utils.Defaults;
 import com.sora.util.akatsuki.Utils.Values;
@@ -109,34 +106,10 @@ public class AkatsukiProcessor extends AbstractProcessor {
 		final TypeAnalyzerResolver resolver = new TypeAnalyzerResolver(templates,
 				declaredConverters, model, context);
 
-		List<BundleRetainerModel> retainerModels = model.forEachClassSerial((c, t) -> {
-			BundleRetainerModel retainerModel = new BundleRetainerModel(context, c, t, resolver,
-					Optional.of(fm -> fm.annotation(Retained.class)
-							.map((retained) -> !retained.skip()).orElse(false)),
-					EnumSet.allOf(Action.class), Optional.of((ctx, action, element, analysis) -> {
-
-				Retained retained = element.model().annotation(Retained.class)
-						.orElseThrow(AssertionError::new);
-				// policy only works on objects as primitives have default
-				// values which we can't really check for :(
-				if (!ctx.utils().isPrimitive(element.fieldMirror())) {
-					switch (retained.restorePolicy()) {
-					case IF_NULL:
-						analysis.wrap(s -> "if({{fieldName}} == null){\n" + s + "}\n");
-						break;
-					case IF_NOT_NULL:
-						analysis.wrap(s -> "if({{fieldName}} != null){\n" + s + "}\n");
-						break;
-					default:
-					case DEFAULT:
-					case OVERWRITE:
-						// do nothing
-						break;
-					}
-				}
-			}));
-			retainerModel.writeSourceToFile(processingEnv.getFiler());
-			return retainerModel;
+		List<RetainedStateModel> retainerModels = model.forEachClassSerial((c, t) -> {
+			RetainedStateModel stateModel = new RetainedStateModel(context, c, t, resolver);
+			stateModel.writeSourceToFile(processingEnv.getFiler());
+			return stateModel;
 		} , (e, m) -> {
 			context.messager().printMessage(Kind.ERROR,
 					"An error occurred while writing file: " + m.asClassInfo());
@@ -160,7 +133,9 @@ public class AkatsukiProcessor extends AbstractProcessor {
 			new ArgumentBuilderModel(context, model, resolver)
 					.writeSourceToFile(processingEnv.getFiler());
 		} catch (IOException e) {
-			e.printStackTrace();
+			context.messager().printMessage(Kind.ERROR,
+					"An error occurred while writing argument builder");
+			throw new RuntimeException(e);
 		}
 		return true;
 	}

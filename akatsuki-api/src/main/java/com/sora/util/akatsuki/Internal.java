@@ -19,6 +19,22 @@ import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
  */
 @SuppressWarnings("unused")
 public class Internal {
+
+	private static String getPackageNameString(Class<?> clazz) {
+		Package pkg = clazz.getPackage();
+		String packageName = null;
+		if (pkg != null) {
+			return pkg.getName();
+		} else {
+			String fqcn = clazz.getName();
+			int i = fqcn.lastIndexOf('.');
+			if (i != -1) {
+				return fqcn.substring(0, i);
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Finds the {@link BundleRetainer} class and instantiate it. You would not
 	 * normally need this, this method does not do any caching and is designed
@@ -30,11 +46,16 @@ public class Internal {
 	 * @param clazz
 	 *            the {@link Class} of the instance
 	 * @param type
+	 *            the annotation type for retainer lookup
 	 * @return the {@link BundleRetainer}
 	 */
 	@SuppressWarnings("unchecked")
 	static <T> BundleRetainer<T> createRetainer(ClassLoader loader, RetainerCache cache,
 			Class<?> clazz, Class<? extends Annotation> type) {
+		if (clazz == null)
+			throw new NullPointerException("class == null");
+		if (type == null)
+			throw new NullPointerException("annotation type == null");
 		final BundleRetainer<T> instance;
 		final String fqcn = clazz.getName();
 		try {
@@ -45,13 +66,18 @@ public class Internal {
 			if (retainerClass == null) {
 				String className = null;
 				try {
-
 					if (type == Retained.class) {
 						className = generateRetainerClassName(fqcn);
 					} else if (type == Arg.class) {
-						className = generateRetainerClassName(
-								clazz.getPackage().getName() + ".Builders$" + clazz.getSimpleName()
-										+ "Builder$" + clazz.getSimpleName());
+						Package pkg = clazz.getPackage();
+						String packageName = getPackageNameString(clazz);
+						// give up trying, we're not getting the package name
+						if (packageName == null) {
+							throw new RuntimeException(
+									"unable to obtain a package name from class " + clazz);
+						}
+						className = generateRetainerClassName(packageName + ".Builders$"
+								+ clazz.getSimpleName() + "Builder$" + clazz.getSimpleName());
 					} else {
 						throw new AssertionError(
 								"Unable to create retainer for unknown class " + type);
@@ -69,16 +95,18 @@ public class Internal {
 				retainerClass = (Class<? extends BundleRetainer>) findClass(loader, clazz);
 			if (retainerClass == null)
 				throw new RuntimeException("Unable to find generated class for " + fqcn
-						+ ", does the class contain any fields annotated with @Retain(inherited "
-						+ "class works too)?");
+						+ " while traversing the class hierarchy."
+						+ "\nYou cannot call Akatsuki.save/restore with classes that does not have fields annotated with @Retained."
+						+ "\nIf proguard is turned on, please add the respective rules for Akatsuki.");
 			instance = retainerClass.newInstance();
 		} catch (ClassCastException e) {
-			throw new RuntimeException(
+			throw new AssertionError(
 					fqcn + "does not implement BundleRetainer or has the wrong generic "
-							+ "parameter, this is weird",
+							+ "parameter, this should not happen at all",
 					e);
 		} catch (Exception e) {
-			throw new RuntimeException(e);
+			throw new RuntimeException(
+					"Something unexpected happened while creating the retainer instance", e);
 		}
 		return instance;
 	}
@@ -121,6 +149,10 @@ public class Internal {
 			return bundle;
 		}
 
+		protected void check() {
+			// for subclass to do some checking
+		}
+
 	}
 
 	public static class ClassArgBuilder<T> extends ArgBuilder<T> {
@@ -129,11 +161,6 @@ public class Internal {
 
 		public ClassArgBuilder(Bundle bundle, Class<T> targetClass) {
 			this.bundle = bundle;
-			this.targetClass = targetClass;
-		}
-
-		public ClassArgBuilder(Class<T> targetClass) {
-			this.bundle = new Bundle();
 			this.targetClass = targetClass;
 		}
 
@@ -147,10 +174,6 @@ public class Internal {
 
 		public FragmentConcludingBuilder(Bundle bundle, Class<T> targetClass) {
 			super(bundle, targetClass);
-		}
-
-		public FragmentConcludingBuilder(Class<T> targetClass) {
-			super(targetClass);
 		}
 
 		// TODO consider letting the processor generate the instantiation
@@ -183,10 +206,6 @@ public class Internal {
 			super(bundle, targetClass);
 		}
 
-		public IntentConcludingBuilder(Class<T> targetClass) {
-			super(targetClass);
-		}
-
 		protected Intent build() {
 			return new Intent().putExtras(bundle);
 		}
@@ -204,10 +223,6 @@ public class Internal {
 			super(bundle, targetClass);
 		}
 
-		public ActivityConcludingBuilder(Class<T> targetClass) {
-			super(targetClass);
-		}
-
 		public void startActivity(Context context) {
 			context.startActivity(build(context));
 		}
@@ -223,10 +238,6 @@ public class Internal {
 
 		public ServiceConcludingBuilder(Bundle bundle, Class<T> targetClass) {
 			super(bundle, targetClass);
-		}
-
-		public ServiceConcludingBuilder(Class<T> targetClass) {
-			super(targetClass);
 		}
 
 		public ComponentName startService(Context context) {

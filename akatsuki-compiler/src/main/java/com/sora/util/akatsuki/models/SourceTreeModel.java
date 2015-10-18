@@ -2,6 +2,7 @@ package com.sora.util.akatsuki.models;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -36,14 +37,18 @@ public class SourceTreeModel extends BaseModel {
 		this.models = models;
 	}
 
+	public boolean containsClass(CharSequence fqcn) {
+		return models.stream().anyMatch(m -> m.fullyQualifiedName().equals(fqcn));
+	}
 
-
-	private static void collectElements(ArrayList<Element> elements, Element root, Set<Class<? extends Annotation>> classes){
-		if(root.getKind()== ElementKind.CLASS){
+	private static void collectElements(ArrayList<Element> elements, Element root,
+			Set<Class<? extends Annotation>> classes) {
+		if (root.getKind() == ElementKind.CLASS) {
 			for (Element element : root.getEnclosedElements()) {
 				collectElements(elements, element, classes);
 			}
-		}else if(root.getKind() == ElementKind.FIELD && classes.stream().anyMatch(c -> root.getAnnotation(c) != null)){
+		} else if (root.getKind() == ElementKind.FIELD
+				&& classes.stream().anyMatch(c -> root.getAnnotation(c) != null)) {
 			elements.add(root);
 		}
 	}
@@ -52,18 +57,15 @@ public class SourceTreeModel extends BaseModel {
 	public static SourceTreeModel fromRound(ProcessorContext context, RoundEnvironment roundEnv,
 			Set<Class<? extends Annotation>> classes) {
 
-//		final Set<Element> elements = new HashSet<>();
-//		for (Class<? extends Annotation> clazz : classes) {
-//			elements.addAll(roundEnv.getElementsAnnotatedWith(clazz));
-//		}
-
+		// final Set<Element> elements = new HashSet<>();
+		// for (Class<? extends Annotation> clazz : classes) {
+		// elements.addAll(roundEnv.getElementsAnnotatedWith(clazz));
+		// }
 
 		ArrayList<Element> list = new ArrayList<>();
 		for (Element root : roundEnv.getRootElements()) {
 			collectElements(list, root, classes);
 		}
-
-
 
 		Map<String, SourceClassModel> classNameMap = new HashMap<>();
 		int processed = 0;
@@ -104,10 +106,9 @@ public class SourceTreeModel extends BaseModel {
 							+ " error(s) occurred, no files are generated after the first "
 							+ "error has occurred.");
 		} else {
-			// stage 2, find superclass and mark hidden fields
+			// stage 2, initialize them all
 			for (SourceClassModel model : classNameMap.values()) {
-				model.findSuperClass(classNameMap);
-				model.markHiddenFields();
+				model.initialize(classNameMap, roundEnv);
 			}
 		}
 
@@ -202,6 +203,11 @@ public class SourceTreeModel extends BaseModel {
 
 	public interface ClassWalker<M> {
 		M walk(SourceClassModel classModel, SourceTreeModel treeModel) throws Exception;
+	}
+
+	public Collection<SourceClassModel> findModelWithMatchingElement(TypeElement e) {
+		return models.stream().filter(classModel -> classModel.originatingElement().equals(e))
+				.collect(Collectors.toSet());
 	}
 
 	public SourceClassModel findModelWithAssignableMirror(TypeMirror mirror) {

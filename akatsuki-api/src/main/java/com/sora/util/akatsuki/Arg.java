@@ -24,7 +24,7 @@ public @interface Arg {
 	/**
 	 * Use the given value as setter name of the builder, defaults to field name
 	 */
-	String value() default "";
+	 String value() default "";
 
 	/**
 	 * Custom index for field processing order, defaults to code ordering

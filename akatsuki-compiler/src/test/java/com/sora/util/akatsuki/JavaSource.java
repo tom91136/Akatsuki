@@ -26,7 +26,7 @@ public final class JavaSource {
 	public final Modifier[] modifiers;
 	private JavaSource superClass;
 
-	private BiFunction<Builder, JavaSource, Builder> builderTransformer;
+	private final List<BiFunction<Builder, JavaSource, Builder>> builderTransformers = new ArrayList<>();
 
 	/**
 	 * Creates a top level class
@@ -83,13 +83,16 @@ public final class JavaSource {
 
 		if (superClass != null)
 			builder.superclass(ClassName.get(superClass.packageName, superClass.className));
-		if (builderTransformer != null)
-			builder = builderTransformer.apply(builder, this);
+
+		for (BiFunction<Builder, JavaSource, Builder> function : builderTransformers) {
+			builder = function.apply(builder, this);
+		}
+
 		return builder;
 	}
 
-	public JavaSource builderTransformer(BiFunction<Builder, JavaSource, Builder> function) {
-		this.builderTransformer = function;
+	public JavaSource appendTransformation(BiFunction<Builder, JavaSource, Builder> function) {
+		this.builderTransformers.add(function);
 		return this;
 	}
 
@@ -119,4 +122,10 @@ public final class JavaSource {
 		return packageName + "." + className;
 	}
 
+	@Override
+	public String toString() {
+		return "JavaSource{" + "packageName='" + packageName + '\'' + ", className='" + className
+				+ '\'' + ", specs=" + specs + ", innerClasses=" + innerClasses + ", modifiers="
+				+ Arrays.toString(modifiers) + ", superClass=" + superClass + '}';
+	}
 }

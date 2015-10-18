@@ -10,6 +10,7 @@ import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.sora.util.akatsuki.TypeFilter;
 
 import org.parceler.Parcel;
+import org.parceler.Parcels;
 
 import java.util.List;
 import java.util.Map;
