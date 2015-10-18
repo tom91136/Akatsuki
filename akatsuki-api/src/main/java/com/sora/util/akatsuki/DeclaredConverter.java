@@ -22,15 +22,16 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Allows the annotated {@link TypeConverter} to be accepted globally.
+ * Allows the annotated {@link TypeConverter} to be accepted globally,
+ * {@link With} takes precedence when specified
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface DeclaredConverter {
 
 	/**
-	 * Defines how types are matched, see {@link TypeFilter} for more
-	 * details on how to use
+	 * Defines how types are matched, see {@link TypeFilter} for more details on
+	 * how to use
 	 *
 	 */
 	TypeFilter[]value();

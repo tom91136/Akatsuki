@@ -1,8 +1,8 @@
 package com.sora.util.akatsuki;
 
-import android.os.Bundle;
-
 import java.util.Collection;
+
+import android.os.Bundle;
 
 public class CollectionConverter implements TypeConverter<Collection<?>> {
 	@Override

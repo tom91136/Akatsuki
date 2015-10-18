@@ -46,11 +46,4 @@ public @interface Retained {
 	 */
 	RestorePolicy restorePolicy() default RestorePolicy.DEFAULT;
 
-	/**
-	 * The specified {@link TypeConverter} will be used to persist this field
-	 * (this takes precedence over everything, including the built in type
-	 * support and {@link DeclaredConverter} annotated {@link TypeConverter}s)
-	 */
-	Class<? extends TypeConverter<?>>converter() default DummyTypeConverter.class;
-
 }

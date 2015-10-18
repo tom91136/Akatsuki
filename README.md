@@ -3,9 +3,13 @@
 
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-Akatsuki-green.svg?style=flat)](https://android-arsenal.com/details/1/2230)
 [![Build Status](https://travis-ci.org/tom91136/Akatsuki.svg)](https://travis-ci.org/tom91136/Akatsuki)
+[![Download](https://api.bintray.com/packages/tom91136/maven/Akatsuki/images/download.svg)](https://bintray.com/tom91136/maven/Akatsuki/_latestVersion)
 
-Akatsuki is an Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) via annotations.
+Akatsuki is an light weight Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) and argument passing via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
+
+
+State restoration
 
  - Retain state with `@Retained`
  - All types supported by `Bundle` can be `@Retained`
@@ -13,8 +17,24 @@ The library automatically generates source files through JSR269 to ensure almost
  - Generic parameters are supported
  - `TypeConverter` and `@TransformationTemplate` for custom types
  - Compatible with other parcel and binding libraries
+ 
+ 
+Argument passing
+
+ - Pass arguments with `@Arg`
+ - Supports ANY class, including `Activity`, `Fragment`, `Service`.  You name it!
+ - Support for type safe builders
+ 
+ 
+Why Akatsuki?
+
+This library handles most Android IPC boilerplate that would otherwise be tedious to write and maintain. 
+
+While AndroidAnnotations is awesome, I'm looking for a lightweight drop in solution for only eliminating IPC boilerplate, and writing my own seems to be the only solution. 
+Dart, Icepick and FragmentArg is awesome on their own, but it gets tedious when used together because you have to call their static helper everywhere and some of them don't play nice with each other.  
 
 Example usage:
+
 
 ```java
 public class MainActivity extends Activity {
@@ -29,6 +49,9 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         Akatsuki.restore(this, savedInstanceState);
         //everything restored!   
+        
+        // you want to start AnotherActivity and pass some stuff:
+        Builders.AnotherActivity().theAnswer("42").startActivity(this);
     }
 
     @Override
@@ -37,6 +60,28 @@ public class MainActivity extends Activity {
         Akatsuki.save(this, outState);
     }
 }
+
+// in another activity class
+public class AnotherActivity extends Activity {
+
+    // @Args and @Retained can be used together
+    @Arg @Retained String theAnswer; 
+  
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        Akatsuki.restore(this, savedInstanceState);
+        // theAnswer is retrieved from the intent and persisted in case of any change
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        Akatsuki.save(this, outState);
+    }
+}
+
 ```
 <sup>1</sup>Reflection is used only once to locate the generated classes.
 
@@ -48,13 +93,13 @@ For documentation and additional information see [the wiki](https://github.com/t
 Gradle dependencies:
 ```groovy
 dependencies {
-	compile 'com.sora.util.akatsuki:akatsuki-api:0.0.3'
-	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.0.3'
+	compile 'com.sora.util.akatsuki:akatsuki-api:0.1.0'
+	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.1.0'
 }
 ```
 Optional parceler support:
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-parceler:0.0.3@aar'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.1.0@aar'
 ```
 
 
@@ -69,10 +114,20 @@ compileOptions {
 // exception: do keep 1_8 if you happen to be using retrolambda
 ```
 
-
-
 ##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.3/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
+
+## Proguard
+Please use the following rules if you have proguard enabled in your build script:
+
+```groovy
+-dontwarn com.sora.util.akatsuki.**
+-keep class com.sora.util.akatsuki.** { *; }
+-keep class **$$BundleRetainer { *; }
+-keepclasseswithmembernames class * {
+    @com.sora.util.akatsuki.* <fields>;
+}
+```
 
 ## License
 

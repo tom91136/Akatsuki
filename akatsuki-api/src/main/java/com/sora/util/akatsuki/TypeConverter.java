@@ -5,7 +5,7 @@ import android.os.Bundle;
 /**
  * For types not supported by Akatsuki, you can implement this interface and
  * either register it globally by annotating it with {@link TypeConverter} or
- * specify the converter directly using {@link Retained#converter()}
+ * specify the converter directly using {@link With#value()}
  * 
  * @param <T>
  *            the target type
@@ -39,4 +39,21 @@ public interface TypeConverter<T> {
 	 */
 	T restore(Bundle bundle, T initializer, String key);
 
+	/**
+	 * Annotation default for {@link With#value()}, this is not the class you
+	 * are looking for
+	 */
+	final class DummyTypeConverter implements TypeConverter<Void> {
+
+		@Override
+		public void save(Bundle bundle, Void ignored, String key) {
+			throw new RuntimeException("DummyTypeConverter should not be used directly");
+		}
+
+		@Override
+		public Void restore(Bundle bundle, Void ignored, String key) {
+			throw new RuntimeException("DummyTypeConverter should not be used directly");
+		}
+
+	}
 }

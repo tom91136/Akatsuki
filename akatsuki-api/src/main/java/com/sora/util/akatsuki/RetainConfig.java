@@ -1,14 +1,14 @@
 package com.sora.util.akatsuki;
 
-import android.os.Bundle;
-
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
-import com.sora.util.akatsuki.Retained.RestorePolicy;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import android.os.Bundle;
+
+import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+import com.sora.util.akatsuki.Retained.RestorePolicy;
 
 /**
  * A compile time configuration annotation for Akatsuki, this can be placed on

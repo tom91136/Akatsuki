@@ -1,12 +1,17 @@
 package com.sora.util.akatsuki;
 
-import android.os.Bundle;
-import android.os.Parcelable;
-import android.util.Log;
-import android.view.View;
-
+import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.WeakHashMap;
+
+import android.app.Activity;
+import android.app.Service;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.Parcelable;
+import android.support.v4.app.Fragment;
+import android.util.Log;
+import android.view.View;
 
 /**
  * Contains API for working with {@link Retained} annotated fields.
@@ -85,7 +90,7 @@ public class Akatsuki {
 	public static void save(Object instance, Bundle outState) {
 		if (outState == null)
 			throw new IllegalArgumentException("outState cannot be null");
-		getInstance(instance).save(instance, outState);
+		getRetainerInstance(instance, Retained.class).save(instance, outState);
 	}
 
 	/**
@@ -99,9 +104,34 @@ public class Akatsuki {
 	 *            the bundle containing the saved fields, null-safe
 	 */
 	public static void restore(Object instance, Bundle savedInstanceState) {
-		if (savedInstanceState == null || instance == null)
-			return;
-		getInstance(instance).restore(instance, savedInstanceState);
+		if (instance == null)
+			throw new NullPointerException("instance is null!");
+		Bundle argument = null;
+		if (instance instanceof Fragment) {
+			argument = ((Fragment) instance).getArguments();
+		} else if (instance instanceof android.app.Fragment) {
+			argument = ((android.app.Fragment) instance).getArguments();
+		} else if (instance instanceof Activity) {
+			Intent intent = ((Activity) instance).getIntent();
+			if (intent != null)
+				argument = intent.getExtras();
+		}
+		restore(instance, savedInstanceState, argument);
+	}
+
+	public static void restoreService(Service service, Intent intent) {
+		if (service == null)
+			throw new NullPointerException("service is null!");
+		getRetainerInstance(service, Arg.class).restore(service, intent.getExtras());
+	}
+
+	public static void restore(Object instance, Bundle state, Bundle argument) {
+		if (instance == null)
+			throw new NullPointerException("instance is null!");
+		if (state != null)
+			getRetainerInstance(instance, Retained.class).restore(instance, state);
+		if (argument != null)
+			getRetainerInstance(instance, Arg.class).restore(instance, argument);
 	}
 
 	/**
@@ -219,20 +249,30 @@ public class Akatsuki {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static <T> BundleRetainer<T> getInstance(T clazz) {
-		final String fqcn = clazz.getClass().getName();
-		BundleRetainer<T> instance = (BundleRetainer<T>) CLASS_CACHE.get(fqcn);
-		if (instance == null) {
+	private static <T> BundleRetainer<T> getRetainerInstance(T instance,
+			Class<? extends Annotation> type) {
+		final String fqcn = instance.getClass().getName();
+		String retainerKey = generateRetainerKey(instance.getClass(), type);
+		if (loggingLevel == LoggingLevel.VERBOSE)
+			Log.i(TAG, "looking through cache with key " + retainerKey);
+		BundleRetainer<T> retainer = (BundleRetainer<T>) CLASS_CACHE.get(retainerKey);
+		if (retainer == null) {
+			retainer = Internal.createRetainer(Thread.currentThread().getContextClassLoader(),
+					retainerCache, instance.getClass(), type);
+			CLASS_CACHE.put(retainerKey, retainer);
 			if (loggingLevel == LoggingLevel.VERBOSE)
-				Log.i(TAG, "cache miss for class " + fqcn);
-			instance = Internal.createRetainer(Thread.currentThread().getContextClassLoader(),
-					retainerCache, fqcn, clazz.getClass());
-			CLASS_CACHE.put(fqcn, instance);
+				Log.i(TAG, "cache miss for class " + fqcn + " for type " + type + " retainer is "
+						+ retainer.getClass());
 		} else {
 			if (loggingLevel == LoggingLevel.VERBOSE)
-				Log.i(TAG, "cache hit for class" + fqcn);
+				Log.i(TAG, "cache hit for class " + fqcn + " for type " + type + " retainer is "
+						+ retainer.getClass());
 		}
-		return instance;
+		return retainer;
+	}
+
+	private static String generateRetainerKey(Class<?> clazz, Class<? extends Annotation> type) {
+		return clazz.getName() + "_" + type.getName();
 	}
 
 	private static void discardCache() {

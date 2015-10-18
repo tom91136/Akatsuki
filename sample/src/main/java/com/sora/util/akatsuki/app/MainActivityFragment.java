@@ -1,19 +1,19 @@
 package com.sora.util.akatsuki.app;
 
+import akatsuki.util.sora.com.akatsuki.R;
+
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.NumberPicker;
 import android.widget.NumberPicker.OnValueChangeListener;
 
-import com.sora.util.akatsuki.Akatsuki;
-import com.sora.util.akatsuki.Retained;
-
-import akatsuki.util.sora.com.akatsuki.R;
 import butterknife.Bind;
 import butterknife.ButterKnife;
+
+import com.sora.util.akatsuki.Akatsuki;
+import com.sora.util.akatsuki.Retained;
 
 /**
  * A placeholder fragment containing a simple view.

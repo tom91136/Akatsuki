@@ -18,6 +18,12 @@
         android:hint="This text field will be retained, type something here and rotate the screen. (Yes, EditText does it for you. But just to demonstrate, I set the value to the @Retained one anyway)"
         android:padding="16dp" />
 
+    <Button
+        android:id="@+id/start"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Start activity using the string above as argument"/>
+
 
     <fragment
         android:id="@+id/chooser_sample"

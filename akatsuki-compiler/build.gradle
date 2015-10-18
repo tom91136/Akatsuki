@@ -22,19 +22,25 @@ test {
 dependencies {
     // do not include any Android classes, it will disappear at compile time
     compile project(':akatsuki-api')
-    compile 'com.squareup:javapoet:1.2.0'
+    compile 'com.squareup:javapoet:1.3.0'
     compile 'com.google.auto.service:auto-service:1.0-rc2'
     compile 'com.samskivert:jmustache:1.10'
     compile 'io.janusproject.guava:guava:19.0.0'
-
     provided 'com.google.android:android:4.1.1.4'
-
+    provided 'com.google.android:support-v4:r7'
     testCompile 'com.google.testing.compile:compile-testing:0.7'
-    testCompile 'com.google.android:android:4.1.1.4' // with the exception of testing of course
+    testCompile 'com.google.android:android:4.1.1.4'
+    // with the exception of testing of course
+    testCompile 'com.google.android:support-v4:r7'
     testCompile 'io.janusproject.guava:guava:19.0.0'
     testCompile 'org.mockito:mockito-core:1.10.19'
     testCompile 'junit:junit:4.12'
 
+}
+
+// let's not fail on javadoc errors
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
 }
 
 apply from: file('../deploy-java.gradle')

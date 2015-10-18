@@ -1,5 +1,7 @@
 package com.sora.util.akatsuki.parceler;
 
+import android.app.Fragment;
+
 import com.sora.util.akatsuki.TransformationTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate;
 import com.sora.util.akatsuki.TransformationTemplate.StatementTemplate.Type;
@@ -8,6 +10,7 @@ import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.sora.util.akatsuki.TypeFilter;
 
 import org.parceler.Parcel;
+import org.parceler.Parcels;
 
 import java.util.List;
 import java.util.Map;

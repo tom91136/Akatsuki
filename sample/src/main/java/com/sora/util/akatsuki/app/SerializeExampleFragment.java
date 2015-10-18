@@ -1,5 +1,9 @@
 package com.sora.util.akatsuki.app;
 
+import java.util.Random;
+
+import akatsuki.util.sora.com.akatsuki.R;
+
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.text.method.ScrollingMovementMethod;
@@ -10,14 +14,11 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.sora.util.akatsuki.Akatsuki;
-import com.sora.util.akatsuki.Retained;
-
-import java.util.Random;
-
-import akatsuki.util.sora.com.akatsuki.R;
 import butterknife.Bind;
 import butterknife.ButterKnife;
+
+import com.sora.util.akatsuki.Akatsuki;
+import com.sora.util.akatsuki.Retained;
 
 public class SerializeExampleFragment extends Fragment {
 
