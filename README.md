@@ -90,7 +90,7 @@ For documentation and additional information see [the wiki](https://github.com/t
 ## Download
 **The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
 
-**For the time being, there seems to be several bugs with version `0.1.0` due to the addition of `@Arg`. For stability, you may want to use `0.3.0` for now while I work on `0.1.1`**
+**For the time being, there seems to be several bugs with version `0.1.0` due to the addition of `@Arg`. For stability, you may want to use `0.0.3` for now while I work on `0.1.1`**
 
 Things that are broken in `0.1.0`:
 
