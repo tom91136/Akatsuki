@@ -90,6 +90,17 @@ For documentation and additional information see [the wiki](https://github.com/t
 ## Download
 **The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
 
+**For the time being, there seems to be several bugs with version `0.1.0` due to the addition of `@Arg`. For stability, you may want to use `0.3.0` for now while I work on `0.1.1`**
+
+Things that are broken in `0.1.0`:
+
+ * Builder does not work on inherited fragments
+ * Builder looses type information after certain chained calls
+ * `@Arg` doesn't seems to survive very well on it's own, need a `@Retained` field otherwise something breaks
+ 
+Some of them are showstoppers which I apologise for, I was rushing the 0.1.0 release because it's taking forever.
+
+
 Gradle dependencies:
 ```groovy
 dependencies {
