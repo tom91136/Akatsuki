@@ -2,7 +2,9 @@ package android.os;
 
 import android.util.Size;
 import android.util.SizeF;
-
+/**
+ * For testing use only
+ */
 public class Bundle implements android.os.Parcelable, java.lang.Cloneable {
 	public Bundle() {
 		throw new RuntimeException("Stub!");

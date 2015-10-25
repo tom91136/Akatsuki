@@ -1,31 +1,30 @@
 package com.sora.util.akatsuki;
 
-import android.os.Bundle;
-
-import com.sora.util.akatsuki.Internal.ArgBuilder;
-import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
+import android.os.Bundle;
+
+import com.sora.util.akatsuki.Internal.ArgBuilder;
+import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
 
 public class BuilderTestEnvironment extends BaseTestEnvironment {
-	public BuilderTestEnvironment(TestBase base, List<JavaSource> sources) {
+	public BuilderTestEnvironment(IntegrationTestBase base, List<TestSource> sources) {
 		super(base, sources);
 	}
 
-	public BuilderTestEnvironment(TestBase base, JavaSource source, JavaSource... required) {
+	public BuilderTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
 		super(base, source, required);
 	}
 
@@ -42,7 +41,7 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 		private final Class<?> retainerClass;
 
 		private final BuilderTestEnvironment environment;
-		private final JavaSource source;
+		private final TestSource source;
 
 		private final Method builderClassMethodWithBundle;
 		protected ArgBuilder<?> builderInstance;
@@ -50,7 +49,7 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 		protected BundleRetainer<Object> builderBundleRetainer;
 		private Bundle mockedBundle;
 
-		public SingleBuilderTester(BuilderTestEnvironment environment, JavaSource source) {
+		public SingleBuilderTester(BuilderTestEnvironment environment, TestSource source) {
 			this.environment = environment;
 			this.source = source;
 

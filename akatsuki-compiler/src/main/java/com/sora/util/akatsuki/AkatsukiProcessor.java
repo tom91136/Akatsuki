@@ -24,17 +24,17 @@ import javax.tools.Diagnostic.Kind;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import com.sora.util.akatsuki.RetainConfig.Optimisation;
+import com.sora.util.akatsuki.AkatsukiConfig.Flags;
+import com.sora.util.akatsuki.AkatsukiConfig.OptFlags;
 import com.sora.util.akatsuki.Utils.Defaults;
 import com.sora.util.akatsuki.Utils.Values;
 import com.sora.util.akatsuki.models.SourceTreeModel;
 
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-@SupportedOptions({ "akatsuki.loggingLevel", "akatsuki.optimisation", "akatsuki.restorePolicy" })
+@SupportedOptions({ "akatsuki.loggingLevel", "akatsuki.allowTransient", "akatsuki.allowVolatile",
+		"akatsuki.optFlags", "akatsuki.flags" })
 public class AkatsukiProcessor extends AbstractProcessor {
-
-	private static RetainConfig config;
 
 	private ProcessorContext context;
 
@@ -43,24 +43,23 @@ public class AkatsukiProcessor extends AbstractProcessor {
 	private static final Set<Class<? extends Annotation>> FIELD_ANNOTATIONS = ImmutableSet
 			.of(With.class, Retained.class, Arg.class);
 
-	private static final Set<Class<? extends Annotation>> SUPPORT_ANNOTATIONS = ImmutableSet.of(
+	private static final Set<Class<? extends Annotation>> SUPPORTED_ANNOTATIONS = ImmutableSet.of(
 			TransformationTemplate.class, IncludeClasses.class, DeclaredConverter.class,
-			TypeConstraint.class, RetainConfig.class);
-
-	public static RetainConfig retainConfig() {
-		return config;
-	}
+			TypeFilter.class, TypeConstraint.class, RetainConfig.class, ArgConfig.class,
+			AkatsukiConfig.class);
 
 	@Override
 	public synchronized void init(ProcessingEnvironment processingEnv) {
 		super.init(processingEnv);
+		processingEnv.getMessager().printMessage(Kind.NOTE, "Processor started");
 		this.context = new ProcessorContext(processingEnv);
-
+		Log.verbose(context, "Processor context created...");
 		Map<String, String> options = processingEnv.getOptions();
 		if (options != null && !options.isEmpty()) {
 			this.options = options;
-			context.messager().printMessage(Kind.OTHER, "option received:" + options);
+			Log.verbose(context, "Options received: " + options);
 		}
+
 	}
 
 	@Override
@@ -68,44 +67,70 @@ public class AkatsukiProcessor extends AbstractProcessor {
 		// NOTE: process gets called multiple times if any other annotation
 		// processor exists
 
-		// compiler options override @RetainConfig
-		if (options == null) {
-			final List<RetainConfig> configs = findAnnotations(
-					roundEnv.getElementsAnnotatedWith(RetainConfig.class), RetainConfig.class);
-			if (configs.size() > 1) {
-				context.messager().printMessage(Kind.ERROR,
-						"Multiple @RetainConfig found, you can only have one config. Found:"
-								+ configs.toString());
-			}
-			config = configs.isEmpty() ? Defaults.of(RetainConfig.class) : configs.get(0);
-		} else {
-			config = Values.of(RetainConfig.class, Defaults.of(RetainConfig.class), options,
+		context.roundStarted();
+		Log.verbose(context, "Begin processing round, roots: " + roundEnv.getRootElements());
+
+		AkatsukiConfig config;
+
+		final List<AkatsukiConfig> configs = findAnnotations(
+				roundEnv.getElementsAnnotatedWith(AkatsukiConfig.class), AkatsukiConfig.class);
+		if (configs.size() > 1) {
+			context.messager().printMessage(Kind.ERROR,
+					"Multiple @RetainConfig found, you can only have one config. Found:"
+							+ configs.toString());
+			context.roundFinished();
+			return false;
+		}
+		config = configs.isEmpty() ? Defaults.of(AkatsukiConfig.class) : configs.get(0);
+		if (options != null) {
+			config = Values.of(AkatsukiConfig.class, config, options,
 					methodName -> "akatsuki." + methodName);
 		}
 
-		// config is ready, we can log now
-		Log.verbose(context, retainConfig().toString());
+		Configuration configuration = new Configuration(config);
+		Log.verbose(context, "Verifying configuration...");
+		configuration.validate(context);
+		// config is ready, we can log properly now
+		Log.verbose(context, "Configuration loaded: " + configuration);
+		context.setConfigForRound(configuration);
 
-		SourceTreeModel model = SourceTreeModel.fromRound(context, roundEnv, FIELD_ANNOTATIONS);
-
-		if (model == null) {
-			context.messager().printMessage(Kind.ERROR, "verification failed");
-			return true;
-		}
-
-		if (model.classModels().isEmpty()) {
-			Log.verbose(context,
-					"Round has no elements, classes possibly originated from another annotation processor");
+		// short circuit when compiler disabled
+		if (context.config().flags().contains(Flags.DISABLE_COMPILER)) {
+			Log.verbose(context, "DISABLE_COMPILER flag found, compiler disabled.");
+			context.roundFinished();
 			return false;
 		}
 
-		// bundle retainer first
+		Log.verbose(context, "Building source tree...");
+		SourceTreeModel model = SourceTreeModel.fromRound(context, roundEnv, FIELD_ANNOTATIONS);
 
+		if (model == null) {
+			context.messager().printMessage(Kind.ERROR, "Source tree verification failed");
+			context.roundFinished();
+			return true;
+		}
+		if (model.classModels().isEmpty()) {
+			Log.verbose(context,
+					"Round has no elements, classes possibly originated from another annotation processor");
+			context.roundFinished();
+			return false;
+		}
+		Log.verbose(context, "Source tree built");
+
+		Log.verbose(context, "Resolving @TransformationTemplate...");
 		List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
+		Log.verbose(context, "Found " + templates.size());
+		Log.verbose(context, "Resolving @DeclaredConverter...");
 		List<DeclaredConverterModel> declaredConverters = findDeclaredConverters(roundEnv);
+		Log.verbose(context, "Found " + declaredConverters.size());
+
 		final TypeAnalyzerResolver resolver = new TypeAnalyzerResolver(templates,
 				declaredConverters, model, context);
+		Log.verbose(context, "TypeAnalyzerResolver created...");
 
+
+		// bundle retainer first
+		Log.verbose(context, "Generating classes for @Retained...");
 		List<RetainedStateModel> retainerModels = model.forEachClassSerial((c, t) -> {
 			RetainedStateModel stateModel = new RetainedStateModel(context, c, t, resolver);
 			stateModel.writeSourceToFile(processingEnv.getFiler());
@@ -116,19 +141,21 @@ public class AkatsukiProcessor extends AbstractProcessor {
 			throw new RuntimeException(e);
 		});
 
-		if (retainConfig().optimisation() != Optimisation.NONE && retainerModels != null) {
+		if (context.config().optFlags().contains(OptFlags.CLASS_LUT) && retainerModels != null) {
+			Log.verbose(context, "Generating additional classes for OptFlags.CLASS_LUT...");
 
 			try {
 				new RetainerMappingModel(context, retainerModels, roundEnv.getRootElements(),
-						retainConfig().optimisation()).writeSourceToFile(processingEnv.getFiler());
+						context.config()).writeSourceToFile(processingEnv.getFiler());
 			} catch (IOException e) {
 				context.messager().printMessage(Kind.ERROR,
 						"An error occurred while writing cache class, "
-								+ "try adding @RetainConfig(optimisation = Optimisation.NONE) to any class.");
+								+ "try disabling OptFlags.VECTORIZE_INHERITANCE");
 				throw new RuntimeException(e);
 			}
 		}
 
+		Log.verbose(context, "Generating classes for @Arg...");
 		try {
 			new ArgumentBuilderModel(context, model, resolver)
 					.writeSourceToFile(processingEnv.getFiler());
@@ -137,6 +164,7 @@ public class AkatsukiProcessor extends AbstractProcessor {
 					"An error occurred while writing argument builder");
 			throw new RuntimeException(e);
 		}
+		context.roundFinished();
 		return true;
 	}
 
@@ -186,7 +214,7 @@ public class AkatsukiProcessor extends AbstractProcessor {
 	public Set<String> getSupportedAnnotationTypes() {
 		HashSet<Class<? extends Annotation>> classes = new HashSet<>();
 		classes.addAll(FIELD_ANNOTATIONS);
-		classes.addAll(SUPPORT_ANNOTATIONS);
+		classes.addAll(SUPPORTED_ANNOTATIONS);
 		return classes.stream().map(Class::getName).collect(Collectors.toSet());
 	}
 }

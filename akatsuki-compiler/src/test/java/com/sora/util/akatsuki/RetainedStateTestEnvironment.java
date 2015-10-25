@@ -14,6 +14,7 @@ import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -31,18 +32,18 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 	}
 
 	public interface FieldFilter {
-		boolean test(Field field, Class<?> type, Type[] arguments);
+		boolean test(TestField field, Class<?> type, Type[] arguments);
 	}
 
 	private BundleRetainer<Object> retainer; // no <?> because mokito blows up
 
 	private BundleRetainerTester tester;
 
-	public RetainedStateTestEnvironment(TestBase base, List<JavaSource> sources) {
+	public RetainedStateTestEnvironment(IntegrationTestBase base, List<TestSource> sources) {
 		super(base, sources);
 	}
 
-	public RetainedStateTestEnvironment(TestBase base, JavaSource source, JavaSource... required) {
+	public RetainedStateTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
 		super(base, source, required);
 	}
 
@@ -111,22 +112,26 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 		}
 
 		public void testSaveRestoreInvocation(Predicate<String> namePredicate,
-				FieldFilter accessorTypeFilter, Set<Field> fields) {
+				FieldFilter accessorTypeFilter, Set<RetainedTestField> fields,
+				Function<TestField, Integer> times) {
 			for (Accessor accessor : Accessor.values()) {
-				executeTestCaseWithFields(fields, namePredicate, accessorTypeFilter, accessor);
+				executeTestCaseWithFields(fields, namePredicate, accessorTypeFilter, accessor,
+						times);
 			}
 		}
 
 		public void testSaveRestoreInvocation(Predicate<String> namePredicate,
-				FieldFilter accessorTypeFilter, List<? extends Field> fields) {
-			final HashSet<Field> set = Sets.newHashSet(fields);
+				FieldFilter accessorTypeFilter, List<? extends RetainedTestField> fields,
+				Function<TestField, Integer> times) {
+			final HashSet<RetainedTestField> set = Sets.newHashSet(fields);
 			if (set.size() != fields.size())
 				throw new IllegalArgumentException("Duplicate fields are not allowed");
-			testSaveRestoreInvocation(namePredicate, accessorTypeFilter, set);
+			testSaveRestoreInvocation(namePredicate, accessorTypeFilter, set, times);
 		}
 
 		public static FieldFilter ALWAYS = (f, t, a) -> true;
-		public static FieldFilter CLASS = (f, t, a) -> f.clazz.equals(t);
+		public static FieldFilter NEVER = (f, t, a) -> false;
+		public static FieldFilter CLASS_EQ = (f, t, a) -> f.clazz.equals(t);
 		public static FieldFilter ASSIGNABLE = (f, t, a) -> t.isAssignableFrom(f.clazz);
 
 		public static class AccessorKeyPair {
@@ -149,7 +154,7 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 
 		}
 
-		public AccessorKeyPair captureTestCaseKeysWithField(Field field,
+		public AccessorKeyPair captureTestCaseKeysWithField(RetainedTestField field,
 				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter) {
 			return new AccessorKeyPair(
 					captureTestCaseKeyWithField(field, methodNamePredicate, accessorTypeFilter,
@@ -158,7 +163,7 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 							Accessor.GET));
 		}
 
-		public String captureTestCaseKeyWithField(Field field,
+		public String captureTestCaseKeyWithField(RetainedTestField field,
 				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter,
 				Accessor accessor) {
 			final ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
@@ -185,26 +190,28 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 					+ environment.printReport());
 		}
 
-		public void executeTestCaseWithFields(Set<? extends Field> fieldList,
+		public void executeTestCaseWithFields(Set<? extends TestField> fieldList,
 				Predicate<String> methodNamePredicate, FieldFilter accessorTypeFilter,
-				Accessor accessor) {
-			Set<Field> allFields = new HashSet<>(fieldList.stream()
-					.filter(f -> f instanceof RetainedField).collect(Collectors.toList()));
+				Accessor accessor, Function<TestField, Integer> times) {
+			Set<TestField> allFields = new HashSet<>(fieldList);
+
 			for (Method method : Bundle.class.getMethods()) {
 
 				// check correct signature and name predicate
 				if (!checkMethodIsAccessor(method, accessor)
-						|| !methodNamePredicate.test(method.getName()))
+						|| !methodNamePredicate.test(method.getName())) {
 					continue;
+				}
 
 				// find methods who's accessor type matches the given fields
-				List<Field> matchingField = allFields.stream()
+				List<TestField> matchingField = allFields.stream()
 						.filter(f -> filterTypes(method, accessor, accessorTypeFilter, f))
 						.collect(Collectors.toList());
 
 				// no signature match
-				if (matchingField.isEmpty())
+				if (matchingField.isEmpty()) {
 					continue;
+				}
 
 				// more than one match, we should have exactly one match
 				if (matchingField.size() > 1) {
@@ -212,19 +219,20 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 							+ fieldList + ", this is ambiguous and should not happen."
 							+ environment.printReport());
 				}
-				final Field field = matchingField.get(0);
+				final TestField field = matchingField.get(0);
 				try {
 					if (accessor == Accessor.PUT) {
-						method.invoke(verify(mockedBundle, times(1)), eq(field.name),
-								any(field.clazz));
+						method.invoke(verify(mockedBundle, times(times.apply(field))),
+								eq(field.name), any(field.clazz));
 					} else {
-						method.invoke(verify(mockedBundle, times(1)), eq(field.name));
+						method.invoke(verify(mockedBundle, times(times.apply(field))),
+								eq(field.name));
 					}
 					allFields.remove(field);
 
 				} catch (Exception e) {
 					throw new AssertionError("Invocation of method " + method.getName()
-							+ " on mocked object " + "failed." + environment.printReport(), e);
+							+ " on mocked object failed." + environment.printReport(), e);
 				}
 			}
 			if (!allFields.isEmpty())
@@ -234,7 +242,7 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 		}
 
 		private boolean filterTypes(Method method, Accessor accessor,
-				FieldFilter accessorTypeFilter, Field field) {
+				FieldFilter accessorTypeFilter, TestField field) {
 			Parameter[] parameters = method.getParameters();
 			Class<?> type = accessor == Accessor.PUT ? parameters[1].getType()
 					: method.getReturnType();

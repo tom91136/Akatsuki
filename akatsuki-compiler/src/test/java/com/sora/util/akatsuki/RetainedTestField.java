@@ -1,23 +1,25 @@
 package com.sora.util.akatsuki;
 
 import com.google.common.base.Objects;
+import com.sora.util.akatsuki.Retained.RestorePolicy;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 
-public class RetainedField extends Field {
+public class RetainedTestField extends TestField {
 
 	private boolean skip;
-	private Class<? extends TypeConverter<?>> typeConverterClass;
+	private RestorePolicy policy;
 
-	public RetainedField(Class<?> clazz, Class<?>... parameters) {
+	public RetainedTestField(Class<?> clazz, Class<?>... parameters) {
 		super(clazz, parameters);
 	}
 
-	public RetainedField(Class<?> clazz, String name, Class<?>... parameters) {
+	public RetainedTestField(Class<?> clazz, String name, Class<?>... parameters) {
 		super(clazz, name, parameters);
 	}
 
-	public RetainedField(Class<?> clazz, String name, String initializer, Class<?>... parameters) {
+	public RetainedTestField(Class<?> clazz, String name, String initializer,
+			Class<?>... parameters) {
 		super(clazz, name, initializer, parameters);
 	}
 
@@ -25,17 +27,17 @@ public class RetainedField extends Field {
 		return skip;
 	}
 
-	public Class<? extends TypeConverter<?>> typeConverter() {
-		return typeConverterClass;
-	}
-
-	public RetainedField skip(boolean skip) {
+	public RetainedTestField skip(boolean skip) {
 		this.skip = skip;
 		return this;
 	}
 
-	public RetainedField typeConverter(Class<? extends TypeConverter<?>> typeConverterClass) {
-		this.typeConverterClass = typeConverterClass;
+	public RestorePolicy policy() {
+		return policy;
+	}
+
+	public RetainedTestField policy(RestorePolicy policy) {
+		this.policy = policy;
 		return this;
 	}
 
@@ -46,8 +48,8 @@ public class RetainedField extends Field {
 		if (skip) {
 			annotationBuilder.addMember("skip", "$L", true);
 		}
-		if (typeConverterClass != null) {
-			annotationBuilder.addMember("converter", "$T.class", typeConverterClass);
+		if (policy != null) {
+			annotationBuilder.addMember("restorePolicy", "$T.$L", RestorePolicy.class, policy);
 		}
 		builder.addAnnotation(annotationBuilder.build());
 		return builder;
@@ -61,12 +63,12 @@ public class RetainedField extends Field {
 			return false;
 		if (!super.equals(o))
 			return false;
-		RetainedField that = (RetainedField) o;
-		return Objects.equal(skip, that.skip);
+		RetainedTestField that = (RetainedTestField) o;
+		return Objects.equal(skip, that.skip) && Objects.equal(policy, that.policy);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode(super.hashCode(), skip);
+		return Objects.hashCode(super.hashCode(), skip, policy);
 	}
 }

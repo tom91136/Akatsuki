@@ -68,8 +68,11 @@ public class ArrayTypeAnalyzer
 
 			CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> resolved;
 			if (component.getKind() == TypeKind.ARRAY) {
+				throw new ConversionException(
+						context.field + " is a multidimentional array, which is not supported "
+								+ "(open an issue on Github if you want it)");
 				// multidimensional array, we need to supply depth
-				resolved = new ArrayTypeAnalyzer(this, depth + 1);
+				// resolved = new ArrayTypeAnalyzer(this, depth + 1);
 			} else {
 				// TODO, never really happens, handled by found type above
 				resolved = resolve(refined).cast(TypeCastStrategy.NO_CAST);
@@ -78,7 +81,6 @@ public class ArrayTypeAnalyzer
 			// give up
 			if (resolved == null)
 				throw new UnknownTypeException(context.field);
-
 
 			final String accessor = fieldAccessor(context);
 

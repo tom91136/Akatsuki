@@ -15,10 +15,8 @@
  */
 
 package android.util;
-
 /**
- * Project: Akatsuki
- * Created by Tom on 7/26/2015.
+ * For testing use only
  */
 public final class Size {
 	public Size() {

@@ -80,14 +80,12 @@ public class ArgumentBuilderModel extends BaseModel
 
 	}
 
-	@SuppressWarnings("unchecked")
-	private <T extends TypeMirror> T mirror(Class<?> clazz) {
-		return (T) context.utils().of(clazz);
+	private DeclaredType mirror(Class<?> clazz) {
+		return (DeclaredType) context.utils().of(clazz);
 	}
 
-	@SuppressWarnings("unchecked")
-	private <T extends TypeMirror> T mirror(String className) {
-		return (T) context.utils().of(className);
+	private DeclaredType mirror(String className) {
+		return (DeclaredType) context.utils().of(className);
 	}
 
 	@Override
@@ -227,13 +225,14 @@ public class ArgumentBuilderModel extends BaseModel
 				.getClassFromAnnotationMethod(config::concludingBuilder, VoidBuilder.class);
 
 		DeclaredType concluderType = possibleConcluderType.orElse(supportedMap.keySet().stream()
-				.filter(m -> context.utils().isAssignable(model.mirror(), m, true)).findFirst()
+				.filter(m -> context.utils().isAssignable( model.mirror(), m, true)).findFirst()
 				.map(supportedMap::get)
-				.orElseThrow(() -> new RuntimeException(
-						model.fullyQualifiedName() + " is not supported directly."
-								+ " @Arg supports Fragment, Activity and Service natively,"
-								+ " you may set specify a concludingBuilder in @ArgConfig "
-								+ "to describe how this class should be built")));
+				.orElseThrow(() -> new RuntimeException(model.fullyQualifiedName()
+						+ " is not supported directly(detected as " + model.mirror() + ")."
+						+ " @Arg supports Fragment, Activity and Service natively,"
+						+ " you may set specify a concludingBuilder in @ArgConfig "
+						+ "to describe how this class should be built.\n"
+						+ Utils.listSuperclass(model.mirror()))));
 
 		final BuilderCodeGenerator generator;
 		switch (config.type().returnType) {
@@ -253,7 +252,6 @@ public class ArgumentBuilderModel extends BaseModel
 			break;
 		}
 
-		System.out.println("\tsuperModel is" + superModel);
 
 		generator.build(
 				new PartialModel(config, model.fullyQualifiedPackageName(), builderName,

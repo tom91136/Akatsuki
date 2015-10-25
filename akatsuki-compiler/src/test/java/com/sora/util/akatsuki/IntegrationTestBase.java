@@ -20,7 +20,7 @@ import com.squareup.javapoet.TypeName;
 
 // this class should not contain any static inner classes because @RunWith(Enclosed.class)
 // with discover them and treat them as test classes
-public abstract class TestBase {
+public abstract class IntegrationTestBase {
 
 	public static final String TEST_PACKAGE = "test";
 	public static final String TEST_CLASS = "TestClass";

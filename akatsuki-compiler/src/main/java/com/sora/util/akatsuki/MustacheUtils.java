@@ -3,9 +3,6 @@ package com.sora.util.akatsuki;
 
 import com.samskivert.mustache.Mustache;
 
-/**
- * Project: Akatsuki Created by Tom on 7/23/2015.
- */
 public class MustacheUtils {
 
 

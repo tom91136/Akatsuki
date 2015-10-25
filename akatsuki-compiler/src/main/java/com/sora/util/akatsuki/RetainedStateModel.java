@@ -74,7 +74,8 @@ public class RetainedStateModel extends GenerationTargetModel<TypeSpec>
 
 	@Override
 	public boolean test(FieldModel fieldModel) {
-		return fieldModel.annotation(Retained.class).map((retained) -> !retained.skip())
+		return fieldModel.annotation(Retained.class)
+				.map((retained) -> !retained.skip() && context.config().testField(fieldModel))
 				.orElse(false);
 	}
 }

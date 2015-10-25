@@ -1,6 +1,8 @@
 package com.sora.util.akatsuki;
 
-import java.io.IOException;
+import static com.sora.util.akatsuki.SourceUtils.T;
+import static com.sora.util.akatsuki.SourceUtils.type;
+
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -8,7 +10,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
@@ -29,11 +30,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
-public class BundleCodeGenerator implements CodeGenerator<TypeSpec> {
-
-	public ClassInfo generatedClassInfo() {
-		return generatedClassInfo;
-	}
+public class BundleCodeGenerator {
 
 	enum Action {
 		SAVE("save", InvocationType.SAVE), RESTORE("restore", InvocationType.RESTORE);
@@ -68,23 +65,25 @@ public class BundleCodeGenerator implements CodeGenerator<TypeSpec> {
 				Internal::generateRetainerClassName);
 	}
 
-	@Override
-	public TypeSpec createModel() {
-		final String sourceName = "source";
-		final String bundleName = "bundle";
+	public ClassInfo generatedClassInfo() {
+		return generatedClassInfo;
+	}
 
-		final SimpleBundleContext bundleContext = new SimpleBundleContext(sourceName, bundleName);
+	public TypeSpec createModel() {
+
+		final SimpleBundleContext bundleContext = new SimpleBundleContext("source", "bundle");
 
 		final ClassName sourceClassName = ClassName.get(classModel.originatingElement());
 
 		TypeVariableName actualClassCapture = TypeVariableName.get("T", sourceClassName);
 
 		final ParameterSpec sourceSpec = ParameterSpec
-				.builder(actualClassCapture, sourceName, Modifier.FINAL).build();
+				.builder(actualClassCapture, bundleContext.sourceObjectName(), Modifier.FINAL)
+				.build();
 
 		final ParameterSpec bundleSpec = ParameterSpec
-				.builder(ClassName.get(AndroidTypes.Bundle.asMirror(context)), bundleName,
-						Modifier.FINAL)
+				.builder(ClassName.get(AndroidTypes.Bundle.asMirror(context)),
+						bundleContext.bundleObjectName(), Modifier.FINAL)
 				.build();
 
 		EnumMap<Action, Builder> actionBuilderMap = new EnumMap<>(Action.class);
@@ -98,8 +97,8 @@ public class BundleCodeGenerator implements CodeGenerator<TypeSpec> {
 			actionBuilderMap.put(action, saveMethodBuilder);
 			if (classModel.directSuperModel().isPresent()) {
 				String superInvocation = "super.$L($L, $L)";
-				saveMethodBuilder.addStatement(superInvocation, action.methodName, sourceName,
-						bundleName);
+				saveMethodBuilder.addStatement(superInvocation, action.methodName,
+						bundleContext.sourceObjectName(), bundleContext.bundleObjectName());
 			}
 		}
 
@@ -151,26 +150,17 @@ public class BundleCodeGenerator implements CodeGenerator<TypeSpec> {
 		Optional<SourceClassModel> superModel = classModel.directSuperModel();
 
 		if (superModel.isPresent()) {
-
 			ClassInfo superClassModel = superModel.get().asClassInfo().transform(null,
 					Internal::generateRetainerClassName);
-
 			final ClassName className = ClassName.get(superClassModel.fullyQualifiedPackageName,
 					superClassModel.className);
 
-			typeSpecBuilder
-					.superclass(ParameterizedTypeName.get(className, TypeVariableName.get("T")));
+			typeSpecBuilder.superclass(ParameterizedTypeName.get(className, T));
 		} else {
-			final ParameterizedTypeName interfaceName = ParameterizedTypeName
-					.get(ClassName.get(BundleRetainer.class), TypeVariableName.get("T"));
+			final ParameterizedTypeName interfaceName = type(BundleRetainer.class, T);
 			typeSpecBuilder.addSuperinterface(interfaceName);
 		}
 		return typeSpecBuilder.build();
-	}
-
-	@Override
-	public void writeSourceToFile(Filer filer) throws IOException {
-		throw new RuntimeException("BundleCodeGenerator cannot be written to a file directly!");
 	}
 
 	public interface FieldTransformation {

@@ -1,7 +1,14 @@
 package com.sora.util.akatsuki;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 import com.sora.util.akatsuki.ArgConcludingBuilder.VoidBuilder;
 
+@Target({ ElementType.TYPE})
+@Retention(RetentionPolicy.CLASS)
 public @interface ArgConfig {
 
 	enum BuilderType {
@@ -84,6 +91,12 @@ public @interface ArgConfig {
 		String template();
 	}
 
+	interface MethodTransformation {
+
+		String transform(String name);
+
+	}
+
 	/**
 	 * Naming rules to be used while the builder class is generated, the rules
 	 * are applied in order of declaration (array order) to each element.For
@@ -117,5 +130,10 @@ public @interface ArgConfig {
 	Order order() default Order.ASC;
 
 	Class<? extends ArgConcludingBuilder>concludingBuilder() default VoidBuilder.class;
+
+	/**
+	 * Whether the annotated class should be processed; useful for debugging
+	 */
+	boolean enabled() default true;
 
 }

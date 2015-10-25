@@ -18,10 +18,6 @@ package com.sora.util.akatsuki;
 
 import javax.lang.model.type.DeclaredType;
 
-/**
- * Project: Akatsuki
- * Created by Tom on 7/29/2015.
- */
 public class DeclaredConverterModel {
 
 	public final DeclaredType converter;

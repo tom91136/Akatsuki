@@ -4,15 +4,32 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+
 public class Utils {
 
 	private Utils() {
 		// no
+	}
+
+	public static String listSuperclass(TypeMirror mirror) {
+		TypeMirror superclass = mirror;
+		StringBuilder builder = new StringBuilder("Superclasses:[");
+		while (superclass != null && superclass.getKind() == TypeKind.DECLARED) {
+			builder.append(superclass.toString()).append(" <- ");
+			superclass = ((TypeElement) ((DeclaredType) superclass).asElement()).getSuperclass();
+		}
+		builder.append("(42)]");
+		return builder.toString();
 	}
 
 	public static String toCapitalCase(String source) {
@@ -68,6 +85,9 @@ public class Utils {
 				return value;
 			} else if (returnType.isEnum()) {
 				return Enum.valueOf((Class<Enum>) returnType, value);
+			}else if(returnType.isArray() && returnType.getComponentType().isEnum()){
+				// TODO test me
+				return Arrays.stream(value.split(",")).map(s -> Enum.valueOf((Class<Enum>)returnType, s.trim())).toArray(Enum[]::new);
 			} else {
 				throw new UnsupportedOperationException(
 						"return type of " + returnType + "is not implemented");

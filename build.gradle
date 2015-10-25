@@ -15,7 +15,7 @@ ext {
     userName = 'Tom Lin'
     userEmail = 'tom91136@gmail.com'
     publishedGroupId = 'com.sora.util.akatsuki'
-    publishVersion = '0.1.0'
+    publishVersion = '0.2.0'
     desc = 'Akatsuki is an Android library that handles IPC via annotations.'
     publishName = 'Akatsuki'
     siteUrl = 'https://github.com/tom91136/Akatsuki'

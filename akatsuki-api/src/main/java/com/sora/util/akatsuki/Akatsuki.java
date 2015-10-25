@@ -13,6 +13,8 @@ import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.View;
 
+import com.sora.util.akatsuki.AkatsukiConfig.LoggingLevel;
+
 /**
  * Contains API for working with {@link Retained} annotated fields.
  */
@@ -28,7 +30,7 @@ public class Akatsuki {
 
 	public static final String TAG = "Akatsuki";
 
-	static LoggingLevel loggingLevel = LoggingLevel.ERROR_ONLY;
+	static LoggingLevel loggingLevel = AkatsukiConfig.LoggingLevel.ERROR_ONLY;
 
 	private static RetainerCache retainerCache;
 
@@ -47,25 +49,6 @@ public class Akatsuki {
 				throw new RuntimeException("Unable to instantiate RetainerCache", e);
 			}
 		}
-	}
-
-	/**
-	 * Logging levels
-	 */
-	public enum LoggingLevel {
-		/**
-		 * Print debug informations at compile time such as class scanning
-		 * progress(this would large output so use with caution)
-		 **/
-		DEBUG, /**
-				 * Print everything! (class caching, verification, and class
-				 * hierarchy traversal attempts)
-				 */
-		VERBOSE, /**
-					 * Prints only errors (when a {@link BundleRetainer} is
-					 * missing for example)
-					 */
-		ERROR_ONLY
 	}
 
 	/**
@@ -88,50 +71,82 @@ public class Akatsuki {
 	 *            the bundle for saving, not null
 	 */
 	public static void save(Object instance, Bundle outState) {
-		if (outState == null)
-			throw new IllegalArgumentException("outState cannot be null");
-		getRetainerInstance(instance, Retained.class).save(instance, outState);
+		save(classLoader(), instance, outState);
+	}
+
+	static void save(ClassLoader loader, Object instance, Bundle outState) {
+		checkInstance(instance, "instance");
+		checkInstance(outState, "outState");
+		findRetainerInstance(loader, instance, Retained.class).save(instance, outState);
+	}
+
+	// all restores below work with @Retained and @Arg
+
+	public static void restore(Fragment fragment, Bundle savedInstanceState) {
+		restore(classLoader(), fragment, savedInstanceState);
+	}
+
+	static void restore(ClassLoader loader, Fragment fragment, Bundle savedInstanceState) {
+		checkInstance(fragment, "fragment");
+		restore(loader, fragment, savedInstanceState, fragment.getArguments());
+	}
+
+	public static void restore(android.app.Fragment fragment, Bundle savedInstanceState) {
+		restore(classLoader(), fragment, savedInstanceState);
+
+	}
+
+	static void restore(ClassLoader loader, android.app.Fragment fragment,
+			Bundle savedInstanceState) {
+		checkInstance(fragment, "fragment");
+		restore(loader, fragment, savedInstanceState, fragment.getArguments());
+	}
+
+	public static void restore(Activity activity, Bundle savedInstanceState) {
+		restore(classLoader(), activity, savedInstanceState);
+	}
+
+	static void restore(ClassLoader loader, Activity activity, Bundle savedInstanceState) {
+		checkInstance(activity, "activity");
+		Intent intent = activity.getIntent();
+		restore(loader, activity, savedInstanceState, intent != null ? intent.getExtras() : null);
 	}
 
 	/**
-	 * Restores field saved by {@link #save(Object, Bundle)} back into the
-	 * instance
+	 * Restores the given intent to the service
+	 *
+	 * @param service
+	 *            the given service
+	 * @param intent
+	 *            the intent from
+	 *            {@link Service#onStartCommand(Intent, int, int)}
+	 */
+	public static void restore(Service service, Intent intent) {
+		restore(classLoader(), service, intent);
+	}
+
+	static void restore(ClassLoader loader, Service service, Intent intent) {
+		checkInstance(service, "service");
+		findRetainerInstance(loader, service, Arg.class).restore(service, intent.getExtras());
+	}
+
+	/**
+	 * Restores the arguments and states from the bundles to the given instance
 	 *
 	 * @param instance
-	 *            the object that needs restoring, null-safe (method returns a
-	 *            null if the instance itself is null)
-	 * @param savedInstanceState
-	 *            the bundle containing the saved fields, null-safe
+	 * @param state
+	 * @param argument
 	 */
-	public static void restore(Object instance, Bundle savedInstanceState) {
-		if (instance == null)
-			throw new NullPointerException("instance is null!");
-		Bundle argument = null;
-		if (instance instanceof Fragment) {
-			argument = ((Fragment) instance).getArguments();
-		} else if (instance instanceof android.app.Fragment) {
-			argument = ((android.app.Fragment) instance).getArguments();
-		} else if (instance instanceof Activity) {
-			Intent intent = ((Activity) instance).getIntent();
-			if (intent != null)
-				argument = intent.getExtras();
-		}
-		restore(instance, savedInstanceState, argument);
-	}
-
-	public static void restoreService(Service service, Intent intent) {
-		if (service == null)
-			throw new NullPointerException("service is null!");
-		getRetainerInstance(service, Arg.class).restore(service, intent.getExtras());
-	}
-
 	public static void restore(Object instance, Bundle state, Bundle argument) {
-		if (instance == null)
-			throw new NullPointerException("instance is null!");
+		restore(classLoader(), instance, state, argument);
+	}
+
+	static void restore(ClassLoader loader, Object instance, Bundle state, Bundle argument) {
+		checkInstance(instance, "instance");
 		if (state != null)
-			getRetainerInstance(instance, Retained.class).restore(instance, state);
+			findRetainerInstance(loader, instance, Retained.class).restore(instance, state);
 		if (argument != null)
-			getRetainerInstance(instance, Arg.class).restore(instance, argument);
+			findRetainerInstance(loader, instance, Arg.class).restore(instance, argument);
 	}
 
 	/**
@@ -156,9 +171,14 @@ public class Akatsuki {
 	 * @return a parcelable to returned in {@link View#onSaveInstanceState()}
 	 */
 	public static Parcelable save(View view, Parcelable parcelable) {
+		return save(classLoader(), view, parcelable);
+	}
+
+	static Parcelable save(ClassLoader loader, View view, Parcelable parcelable) {
+		checkInstance(view, "view");
 		Bundle bundle = new Bundle();
 		bundle.putParcelable(view.getClass().getName(), parcelable);
-		save((Object) view, bundle);
+		save(loader, (Object) view, bundle);
 		return bundle;
 	}
 
@@ -185,9 +205,13 @@ public class Akatsuki {
 	 *         {@code super.onRestoreInstanceState()}
 	 */
 	public static Parcelable restore(View view, Parcelable parcelable) {
+		return restore(classLoader(), view, parcelable);
+	}
+
+	static Parcelable restore(ClassLoader loader, View view, Parcelable parcelable) {
 		if (parcelable instanceof Bundle) {
 			final Bundle bundle = (Bundle) parcelable;
-			restore((Object) view, bundle);
+			restore(loader, (Object) view, bundle, null);
 			return bundle.getParcelable(view.getClass().getName());
 		} else {
 			throw new RuntimeException("View state of view " + view.getClass()
@@ -199,6 +223,10 @@ public class Akatsuki {
 	 * Serializes the given instance into a Bundle
 	 */
 	public static Bundle serialize(Object instance) {
+		return serialize(classLoader(), instance);
+	}
+
+	static Bundle serialize(ClassLoader loader, Object instance) {
 		Bundle bundle = new Bundle();
 		save(instance, bundle);
 		return bundle;
@@ -214,7 +242,11 @@ public class Akatsuki {
 	 * @return deserialized instance
 	 */
 	public static <T> T deserialize(T instance, Bundle bundle) {
-		restore(instance, bundle);
+		return deserialize(classLoader(), instance, bundle);
+	}
+
+	static <T> T deserialize(ClassLoader loader, T instance, Bundle bundle) {
+		restore(loader, instance, bundle, null);
 		return instance;
 	}
 
@@ -234,6 +266,11 @@ public class Akatsuki {
 		return deserialize(t, bundle);
 	}
 
+	private static void checkInstance(Object object, String name) {
+		if (object == null)
+			throw new IllegalArgumentException(name + " == null!");
+	}
+
 	/**
 	 * An interface that supplies {@link #deserialize(InstanceSupplier, Bundle)}
 	 * an working instance
@@ -248,27 +285,29 @@ public class Akatsuki {
 		T create();
 	}
 
-	@SuppressWarnings("unchecked")
-	private static <T> BundleRetainer<T> getRetainerInstance(T instance,
+	static <T> BundleRetainer<T> findRetainerInstance(ClassLoader loader, T instance,
 			Class<? extends Annotation> type) {
 		final String fqcn = instance.getClass().getName();
 		String retainerKey = generateRetainerKey(instance.getClass(), type);
-		if (loggingLevel == LoggingLevel.VERBOSE)
+		if (loggingLevel == AkatsukiConfig.LoggingLevel.VERBOSE)
 			Log.i(TAG, "looking through cache with key " + retainerKey);
 		BundleRetainer<T> retainer = (BundleRetainer<T>) CLASS_CACHE.get(retainerKey);
 		if (retainer == null) {
-			retainer = Internal.createRetainer(Thread.currentThread().getContextClassLoader(),
-					retainerCache, instance.getClass(), type);
+			retainer = Internal.createRetainer(loader, retainerCache, instance.getClass(), type);
 			CLASS_CACHE.put(retainerKey, retainer);
-			if (loggingLevel == LoggingLevel.VERBOSE)
+			if (loggingLevel == AkatsukiConfig.LoggingLevel.VERBOSE)
 				Log.i(TAG, "cache miss for class " + fqcn + " for type " + type + " retainer is "
 						+ retainer.getClass());
 		} else {
-			if (loggingLevel == LoggingLevel.VERBOSE)
+			if (loggingLevel == AkatsukiConfig.LoggingLevel.VERBOSE)
 				Log.i(TAG, "cache hit for class " + fqcn + " for type " + type + " retainer is "
 						+ retainer.getClass());
 		}
 		return retainer;
+	}
+
+	private static ClassLoader classLoader() {
+		return Thread.currentThread().getContextClassLoader();
 	}
 
 	private static String generateRetainerKey(Class<?> clazz, Class<? extends Annotation> type) {

@@ -20,7 +20,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor8;
 
-import com.sora.util.akatsuki.RetainConfig.Optimisation;
+import com.sora.util.akatsuki.AkatsukiConfig.OptFlags;
 import com.sora.util.akatsuki.models.BaseModel;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -39,14 +39,14 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 
 	private final List<RetainedStateModel> models;
 	private final Collection<? extends Element> rootElements;
-	private final Optimisation optimisation;
+	private final Configuration configuration;
 
 	protected RetainerMappingModel(ProcessorContext context, List<RetainedStateModel> models,
-			Collection<? extends Element> rootElements, Optimisation optimisation) {
+			Collection<? extends Element> rootElements, Configuration configuration) {
 		super(context);
 		this.models = models;
 		this.rootElements = rootElements;
-		this.optimisation = optimisation;
+		this.configuration = configuration;
 	}
 
 	@Override
@@ -84,12 +84,9 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 		Map<String, RetainedStateModel> modelMap = models.stream().collect(
 				Collectors.toMap(m -> m.classModel().fullyQualifiedName(), Function.identity()));
 
-		if (optimisation == Optimisation.ALL || optimisation == Optimisation.ANNOTATED) {
-			// all annotated classes
-			modelToMapConsumer.accept(modelMap);
-		}
+		modelToMapConsumer.accept(modelMap);
 
-		if (optimisation == Optimisation.ALL) {
+		if (configuration.optFlags().contains(OptFlags.VECTORIZE_INHERITANCE)) {
 			// find all implementing class (for inheritance)
 			for (Element element : rootElements) {
 				modelToMapConsumer.accept(findAllTypes(element, modelMap));

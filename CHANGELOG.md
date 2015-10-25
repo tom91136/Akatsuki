@@ -1,4 +1,35 @@
 
+0.2.0 *(2015/10/23)*
+----------------------------
+
+Major refactor, cleaned up most of the configuration annotations.
+
+Additions
+
+ - @AkatsukiConfig for global configuration
+ - @RetainConfig is now a type annotation
+ - Flexible compiler flags and optimisation flags 
+ - Better verbose messages
+ - Tests now covers the public facing API (such as the `Akatsuki` class)
+ 
+Removed
+
+ - `Optimisation` is removed in favour of flags, this allows more flexibility in configuring
+ - Multidimentional arrays is no longer supported in ETS, it wasn't properly implemented anyway
+ - Arrays of types that take generic arguments are no longer supported due to non existing use case
+ 
+Changes
+
+ - Over half of the tests are reviewed and refactored if required
+ - All `Test` suffix changed to `IntegrationTest` to better reflect the fact that all of them are integration tests
+ 
+ 
+If you want multidimentional arrays and arrays of generic type back, please open a issue (and send a PR if you want it very badly)
+
+
+
+
+
 0.1.0 *(2015/10/18)*
 ----------------------------
 Akatsuki now takes care of the entire IPC, that includes the already supported state restoration plus argument passing!

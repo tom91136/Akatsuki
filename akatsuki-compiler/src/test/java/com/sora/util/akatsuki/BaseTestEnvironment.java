@@ -1,6 +1,5 @@
 package com.sora.util.akatsuki;
 
-import java.awt.TextArea;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -15,15 +14,17 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 
 	public static final Pattern NEW_LINE_PATTERN = Pattern.compile("\\r?\\n");
 
-	protected final List<JavaSource> sources;
+	protected final List<TestSource> sources;
 	private final Result result;
 
-	public BaseTestEnvironment(TestBase base, List<JavaSource> sources) {
+	public BaseTestEnvironment(IntegrationTestBase base, List<TestSource> sources) {
 		this.sources = Collections.unmodifiableList(sources);
 		try {
+
+
 			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 					base.processors(), ImmutableList.of("-Aakatsuki.loggingLevel=VERBOSE"),
-					sources.stream().map(JavaSource::generateFileObject)
+					sources.stream().map(TestSource::generateFileObject)
 							.toArray(JavaFileObject[]::new));
 			if (result.compilationException != null)
 				throw result.compilationException;
@@ -34,7 +35,7 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 		initialize();
 	}
 
-	public BaseTestEnvironment(TestBase base, JavaSource source, JavaSource... required) {
+	public BaseTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
 		this(base, Lists.asList(source, required));
 	}
 
@@ -59,6 +60,10 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 		return result.classLoader;
 	}
 
+	public ImmutableList<JavaFileObject> generatedSources() {
+		return result.sources;
+	}
+
 	public Class<?>[] sourceClasses() throws Exception {
 		return sources.stream().map(s -> {
 			try {
@@ -74,7 +79,7 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 	public String printReport() {
 		StringBuilder builder = new StringBuilder("\n=======Test status report=======");
 		builder.append("\n\u2022Compiler Input:\n");
-		for (JavaSource source : sources) {
+		for (TestSource source : sources) {
 			builder.append("\n\tFully qualified name: ").append(source.fqcn()).append("\n");
 			final String sourceCode = source.generateSource();
 			final String[] lines = NEW_LINE_PATTERN.split(sourceCode);

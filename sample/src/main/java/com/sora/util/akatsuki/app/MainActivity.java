@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.widget.EditText;
 
 import butterknife.Bind;
@@ -13,7 +14,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 
 import com.sora.util.akatsuki.Akatsuki;
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
+import com.sora.util.akatsuki.AkatsukiConfig;
 import com.sora.util.akatsuki.Arg;
 import com.sora.util.akatsuki.IncludeClasses;
 import com.sora.util.akatsuki.RetainConfig;
@@ -33,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
 	@Bind(R.id.persisted) EditText persisted;
 
 	static {
-		Akatsuki.setLoggingLevel(LoggingLevel.VERBOSE);
+		Akatsuki.setLoggingLevel(AkatsukiConfig.LoggingLevel.VERBOSE);
 	}
 
 	@Override

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.function.Function;
 
 import javax.lang.model.element.Modifier;
 
@@ -36,7 +37,7 @@ import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester.AccessorKeyPair;
 import com.squareup.javapoet.ClassName;
 
-public class SupportedTypeTest extends RetainedStateTestBase {
+public class SupportedTypeIntegrationTest extends RetainedStateIntegrationTestBase {
 
 	public static class MySerializable implements Serializable {
 
@@ -64,29 +65,32 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 
 	@Test(expected = RuntimeException.class)
 	public void testUnsupportedType() {
-		final JavaSource source = new JavaSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
-				.fields(field(ClassName.get(Activity.class), "badType", Retained.class));
+		final TestSource source = new TestSource(TEST_PACKAGE, generateClassName(), Modifier.PUBLIC)
+				.appendFields(field(ClassName.get(Activity.class), "badType", Retained.class));
 		new RetainedStateTestEnvironment(this, source);
 	}
 
 	@Test
 	public void testPrimitives() {
-		testSimpleTypes(t -> true, BundleRetainerTester.CLASS, null, PRIMITIVES);
+		testSimpleTypes(t -> true, BundleRetainerTester.CLASS_EQ, Function.identity(), PRIMITIVES);
 	}
 
-	// TODO we got some wicked problem with boxed types, the compiled retainer
-	// throws NPE at lines that doesn't even contain code
 	@Test
 	public void testBoxedPrimitives() {
-		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(Primitives::wrap)
-				.toArray(Class<?>[]::new);
 		// boxed primitives cannot be null otherwise we get NPE when unboxing
 		ImmutableMap<Class<?>, String> defaultValueMap = ImmutableMap.<Class<?>, String> builder()
 				.put(Byte.class, "0").put(Short.class, "0").put(Integer.class, "0")
 				.put(Long.class, "0L").put(Float.class, "0.0F").put(Double.class, "0.0D")
 				.put(Character.class, "\'a\'").put(Boolean.class, "false").build();
-		testSimpleTypes(t -> true, BundleRetainerTester.CLASS, f -> field(f.typeName(), f.name,
-				Retained.class, defaultValueMap.getOrDefault(f.clazz, null)), classes);
+
+		RetainedTestField[] fields = defaultValueMap.entrySet()
+				.stream().map(ent -> new RetainedTestField(ent.getKey(),
+						"_" + ent.getKey().getSimpleName(), ent.getValue()))
+				.toArray(RetainedTestField[]::new);
+		// comparison between primitives and boxed primitives does not work,
+		// manually wrap it
+		testTypes(ALWAYS, (field, type, arguments) -> type.isPrimitive()
+				&& field.clazz == Primitives.wrap(type), f->1, fields);
 
 	}
 
@@ -94,18 +98,20 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 	public void testPrimitiveArrays() {
 		final Class<?>[] classes = Arrays.stream(PRIMITIVES).map(this::toArrayClass)
 				.toArray(Class<?>[]::new);
-		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS, null, classes);
+		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS_EQ, Function.identity(),
+				classes);
 	}
 
 	@Test
 	public void testSupportedSimpleTypes() {
-		testSimpleTypes(n -> true, BundleRetainerTester.CLASS, null, SUPPORTED_SIMPLE_CLASSES);
+		testSimpleTypes(n -> true, BundleRetainerTester.CLASS_EQ, Function.identity(),
+				SUPPORTED_SIMPLE_CLASSES);
 	}
 
 	@Test
 	public void testSubclassOfSupportedTypes() {
 		for (Entry<Class<?>, Class<?>> entry : SUPPORTED_SIMPLE_SUBCLASSES_MAP.entrySet()) {
-			testSimpleTypes(n -> true, (f, t, a) -> t.equals(entry.getValue()), null,
+			testSimpleTypes(n -> true, (f, t, a) -> t.equals(entry.getValue()), Function.identity(),
 					entry.getKey());
 		}
 	}
@@ -116,13 +122,14 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 		// <T> instead of Parcelable
 		for (Class<? extends Parcelable> type : PARCELABLES_CLASSES) {
 			// filter out the method [get|set]Parcelable and work with that only
-			testSimpleTypes(n -> n.endsWith("Parcelable"), BundleRetainerTester.ALWAYS, null, type);
+			testSimpleTypes(n -> n.endsWith("Parcelable"), BundleRetainerTester.ALWAYS,
+					Function.identity(), type);
 		}
 	}
 
 	@Test
 	public void testSupportedArrayTypes() {
-		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS, null,
+		testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.CLASS_EQ, Function.identity(),
 				SUPPORTED_ARRAY_CLASSES);
 	}
 
@@ -135,15 +142,15 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 
 		for (Class<?> type : classes) {
 			// the type of the accessor must be assignable to the field's
-			testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.ASSIGNABLE, null,
-					toArrayClass(type));
+			testSimpleTypes(n -> n.contains("Array"), BundleRetainerTester.ASSIGNABLE,
+					Function.identity(), toArrayClass(type));
 		}
 	}
 
 	@Test
 	public void testSparseArrayParcelableType() {
-		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), BundleRetainerTester.CLASS,
-				null, SparseArray.class, PARCELABLES_CLASSES);
+		testParameterizedTypes(n -> n.contains("SparseParcelableArray"), BundleRetainerTester.CLASS_EQ,
+				SparseArray.class, PARCELABLES_CLASSES);
 	}
 
 	@Test
@@ -151,14 +158,14 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 		// parcelable arraylist also requires special care because the generic
 		// argument of the setter is a wildcard (<? extends Parcelable>)
 		testParameterizedTypes(n -> n.contains("ParcelableArrayList"), BundleRetainerTester.ALWAYS,
-				null, ArrayList.class, PARCELABLES_CLASSES);
+				ArrayList.class, PARCELABLES_CLASSES);
 
 	}
 
 	@Test
 	public void testSupportedArrayListTypes() {
 		testParameterizedTypes(n -> n.contains("ArrayList"),
-				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters), null,
+				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters),
 				ArrayList.class, String.class, Integer.class, CharSequence.class);
 
 	}
@@ -166,77 +173,79 @@ public class SupportedTypeTest extends RetainedStateTestBase {
 	@Test
 	public void testSupportedCollectionTypes() {
 		testParameterizedTypes(n -> n.contains("ArrayList"),
-				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters), null,
+				(f, t, a) -> t.equals(ArrayList.class) && Arrays.equals(a, f.parameters),
 				ArrayList.class, String.class, Integer.class, CharSequence.class);
 
 	}
 
 	@Test
 	public void testSimpleInheritance1() {
-		testInheritance(true, new RetainedField(String.class, "a"),
-				new RetainedField(int.class, "b"));
+		testInheritance(true, new RetainedTestField(String.class, "a"),
+				new RetainedTestField(int.class, "b"));
 	}
 
 	@Test
 	public void testSimpleInheritance2() {
-		testInheritance(true, new RetainedField(CharSequence.class, "a"),
-				new RetainedField(Parcelable.class, "b"));
+		testInheritance(true, new RetainedTestField(CharSequence.class, "a"),
+				new RetainedTestField(Parcelable.class, "b"));
 	}
 
 	@Test
 	public void testSimpleInheritance3() {
-		testInheritance(true, new RetainedField(float.class, "a"),
-				new RetainedField(double.class, "b"));
+		testInheritance(true, new RetainedTestField(float.class, "a"),
+				new RetainedTestField(double.class, "b"));
 	}
 
 	@Test
 	public void testMultiLevelInheritance1() {
-		testInheritance(true, new RetainedField(String.class, "a"),
-				new RetainedField(int.class, "b"), new RetainedField(long.class, "c"));
+		testInheritance(true, new RetainedTestField(String.class, "a"),
+				new RetainedTestField(int.class, "b"), new RetainedTestField(long.class, "c"));
 	}
 
 	@Test
 	public void testDeepInheritance() {
-		RetainedField[] fields = new RetainedField[SUPPORTED_SIMPLE_CLASSES.length];
+		RetainedTestField[] fields = new RetainedTestField[SUPPORTED_SIMPLE_CLASSES.length];
 		for (int i = 0; i < fields.length; i++) {
-			fields[i] = new RetainedField(SUPPORTED_SIMPLE_CLASSES[i], "s" + i);
+			fields[i] = new RetainedTestField(SUPPORTED_SIMPLE_CLASSES[i], "s" + i);
 		}
-		testInheritance(true, new RetainedField(int.class, "first"), fields);
+		testInheritance(true, new RetainedTestField(int.class, "first"), fields);
 	}
 
 	@Test
 	public void testMultiLevelInheritance2() {
-		testInheritance(true, new RetainedField(int.class, "d"),
-				new RetainedField(String.class, "e"), new RetainedField(long.class, "f"),
-				new RetainedField(Parcelable.class, "g"));
+		testInheritance(true, new RetainedTestField(int.class, "d"),
+				new RetainedTestField(String.class, "e"), new RetainedTestField(long.class, "f"),
+				new RetainedTestField(Parcelable.class, "g"));
 	}
 
 	@Test
 	public void testMultiLevelInheritanceWithGap() {
-		testInheritance(true, new RetainedField(String.class, "h"), new Field(int.class, "i"),
-				new RetainedField(long.class, "j"));
+		testInheritance(true, new RetainedTestField(String.class, "h"),
+				new TestField(int.class, "i"), new RetainedTestField(long.class, "j"));
 	}
 
 	@Test
 	public void testInheritanceWithoutAnnotations() {
-		testInheritance(true, new Field(int.class, "a"), new RetainedField(String.class, "b"));
+		testInheritance(true, new TestField(int.class, "a"),
+				new RetainedTestField(String.class, "b"));
 	}
 
 	@Test
 	public void testInheritanceWithoutAnnotationsAndCache() {
-		testInheritance(false, new Field(int.class, "a"), new RetainedField(String.class, "b"));
+		testInheritance(false, new TestField(int.class, "a"),
+				new RetainedTestField(String.class, "b"));
 	}
 
 	@Test
 	public void testFieldHiding() {
-		final RetainedField first = new RetainedField(String.class, "a");
-		final RetainedField second = new RetainedField(int.class, "a");
+		final RetainedTestField first = new RetainedTestField(String.class, "a");
+		final RetainedTestField second = new RetainedTestField(int.class, "a");
 		final RetainedStateTestEnvironment environment = testFieldHiding(first, second);
 		environment.tester().invokeSaveAndRestore();
 		final AccessorKeyPair firstKeys = environment.tester().captureTestCaseKeysWithField(first,
-				n -> true, BundleRetainerTester.CLASS);
+				n -> true, BundleRetainerTester.CLASS_EQ);
 		final AccessorKeyPair secondKeys = environment.tester().captureTestCaseKeysWithField(second,
-				n -> true, BundleRetainerTester.CLASS);
+				n -> true, BundleRetainerTester.CLASS_EQ);
 		firstKeys.assertSameKeyUsed();
 		secondKeys.assertSameKeyUsed();
 		firstKeys.assertNotTheSame(secondKeys);

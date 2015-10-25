@@ -18,7 +18,7 @@ import com.squareup.javapoet.FieldSpec;
 public class FieldValidationTest {
 
 	@RunWith(Theories.class)
-	public static class FieldValidTest extends TestBase {
+	public static class FieldValidIntegrationTest extends IntegrationTestBase {
 
 		@DataPoint public static final ImmutableList<FieldSpec> PACKAGE_PRIVATE_FIELD = ImmutableList
 				.of(field(STRING_TYPE, "a", Retained.class));
@@ -36,7 +36,7 @@ public class FieldValidationTest {
 	}
 
 	@RunWith(Theories.class)
-	public static class FieldInvalidTest extends TestBase {
+	public static class FieldInvalidIntegrationTest extends IntegrationTestBase {
 
 		@DataPoint public static final ImmutableList<FieldSpec> STATIC_FIELD = ImmutableList
 				.of(field(STRING_TYPE, "a", Retained.class, Modifier.STATIC));

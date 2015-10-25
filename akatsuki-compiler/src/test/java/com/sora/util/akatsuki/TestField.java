@@ -1,38 +1,41 @@
 package com.sora.util.akatsuki;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.stream.Collectors;
+
+import javax.lang.model.element.Modifier;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 
-public class Field {
+public class TestField {
 	public final Class<?> clazz;
 	public final Class<?>[] parameters;
 	public final String name;
 	public final String initializer;
+	public final EnumSet<Modifier> modifiers = EnumSet.noneOf(Modifier.class);
 
-	public Field(Class<?> clazz, Class<?>... parameters) {
+	public TestField(Class<?> clazz, Class<?>... parameters) {
 		this.clazz = clazz;
 		this.parameters = parameters;
 		this.name = "_" + createName(clazz, parameters);
 		this.initializer = null;
 	}
 
-	public Field(Class<?> clazz, String name, Class<?>... parameters) {
+	public TestField(Class<?> clazz, String name, Class<?>... parameters) {
 		this.clazz = clazz;
 		this.parameters = parameters;
 		this.name = name;
 		this.initializer = null;
 	}
 
-	public Field(Class<?> clazz, String name, String initializer, Class<?>... parameters) {
+	public TestField(Class<?> clazz, String name, String initializer, Class<?>... parameters) {
 		this.clazz = clazz;
 		this.parameters = parameters;
 		this.name = name;
@@ -63,10 +66,16 @@ public class Field {
 		}
 	}
 
+	public TestField appendModifier(Modifier... modifiers) {
+		this.modifiers.addAll(Arrays.asList(modifiers));
+		return this;
+	}
+
 	protected Builder fieldSpecBuilder() {
 		final Builder builder = FieldSpec.builder(typeName(), name);
 		if (initializer != null)
 			builder.initializer(initializer);
+		builder.addModifiers(modifiers.toArray(new Modifier[modifiers.size()]));
 		return builder;
 	}
 
@@ -80,7 +89,7 @@ public class Field {
 			return true;
 		if (o == null || getClass() != o.getClass())
 			return false;
-		Field field = (Field) o;
+		TestField field = (TestField) o;
 		return Objects.equal(clazz, field.clazz) && Objects.equal(parameters, field.parameters)
 				&& Objects.equal(name, field.name);
 	}

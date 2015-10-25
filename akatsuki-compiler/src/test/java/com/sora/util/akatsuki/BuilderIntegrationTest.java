@@ -1,12 +1,16 @@
 package com.sora.util.akatsuki;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.Test;
 
@@ -18,16 +22,8 @@ import com.sora.util.akatsuki.ArgConfig.BuilderType;
 import com.sora.util.akatsuki.BuilderTestEnvironment.SingleBuilderTester;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.Accessor;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
-import com.squareup.javapoet.AnnotationSpec;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-public class BuilderTest extends BuilderTestBase {
+public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 
 	@Test
 	public void testSimpleBuilder() {
@@ -68,7 +64,7 @@ public class BuilderTest extends BuilderTestBase {
 
 	@Test
 	public void testBuilderClassHasCorrectStructureTogether() throws ClassNotFoundException {
-		List<JavaSource> sources = Arrays.stream(TEST_PACKAGE_NAMES)
+		List<TestSource> sources = Arrays.stream(TEST_PACKAGE_NAMES)
 				.map(name -> createTestSource(name, Fragment.class, testField()))
 				.collect(Collectors.toList());
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, sources);
@@ -82,43 +78,43 @@ public class BuilderTest extends BuilderTestBase {
 
 	@Test
 	public void testBuilderRetainerRestore() {
-		ArgField[] fields = Arrays.stream(SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES)
-				.map(ArgField::new).toArray(ArgField[]::new);
+		ArgTestField[] fields = Arrays.stream(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES)
+				.map(ArgTestField::new).toArray(ArgTestField[]::new);
 		BuilderTestEnvironment environment = testSingleClass("test", Fragment.class, fields);
 		List<SingleBuilderTester> testers = environment.assertAllBuildersGeneratedAndValid();
 		BundleRetainerTester tester = testers.get(0).retainerTester();
 		tester.invokeRestore();
 		tester.executeTestCaseWithFields(new HashSet<>(Arrays.asList(fields)), n -> true,
-				BundleRetainerTester.CLASS, Accessor.GET);
+				BundleRetainerTester.CLASS_EQ, Accessor.GET, f ->1);
 	}
 
 	@Test
 	public void testBuilderSimpleInheritance() {
-		JavaSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
-		JavaSource child = createTestSource(TEST_PACKAGE_NAME, null,
-				new ArgField(String.class, "anotherField")).superClass(parent);
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		TestSource child = createTestSource(TEST_PACKAGE_NAME, null,
+				new ArgTestField(String.class, "anotherField")).superClass(parent);
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, child);
 		environment.assertAllBuildersGeneratedAndValid();
 	}
 
 	@Test
 	public void testBuilderInheritanceWithGap() {
-		JavaSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
-		JavaSource gap = createTestSource(TEST_PACKAGE_NAME, null,
-				new Field(String.class, "anotherField1")).superClass(parent);
-		JavaSource child = createTestSource(TEST_PACKAGE_NAME, null,
-				new ArgField(String.class, "anotherField2")).superClass(gap);
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		TestSource gap = createTestSource(TEST_PACKAGE_NAME, null,
+				new TestField(String.class, "anotherField1")).superClass(parent);
+		TestSource child = createTestSource(TEST_PACKAGE_NAME, null,
+				new ArgTestField(String.class, "anotherField2")).superClass(gap);
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, gap, child);
-		for (JavaSource source : Arrays.asList(parent, child)) {
+		for (TestSource source : Arrays.asList(parent, child)) {
 			new SingleBuilderTester(environment, source).initializeAndValidate();
 		}
 	}
 
 	@Test
 	public void testBuilderDeepInheritance() {
-		ArgField[] fields = createSimpleArgFields();
-		JavaSource[] sources = new JavaSource[fields.length];
-		JavaSource lastSource = createTestSource(TEST_PACKAGE_NAME, Fragment.class, fields[0]);
+		ArgTestField[] fields = createSimpleArgFields();
+		TestSource[] sources = new TestSource[fields.length];
+		TestSource lastSource = createTestSource(TEST_PACKAGE_NAME, Fragment.class, fields[0]);
 		sources[0] = lastSource;
 		for (int i = 1; i < fields.length; i++) {
 			sources[i] = createTestSource(TEST_PACKAGE_NAME, null, fields[i])
@@ -133,9 +129,9 @@ public class BuilderTest extends BuilderTestBase {
 
 	@Test
 	public void testBuilderCreatedForAllChildren() {
-		JavaSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
-		JavaSource[] children = Arrays.stream(TEST_PACKAGE_NAMES)
-				.map(n -> createTestSource(n, null).superClass(parent)).toArray(JavaSource[]::new);
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		TestSource[] children = Arrays.stream(TEST_PACKAGE_NAMES)
+				.map(n -> createTestSource(n, null).superClass(parent)).toArray(TestSource[]::new);
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, children);
 		environment.assertAllBuildersGeneratedAndValid();
 	}
@@ -143,10 +139,10 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testCheckedBuilderWithNoFieldOptional() {
 		for (BuilderType type : CHECKED_TYPES) {
-			ArgField[] fields = createSimpleArgFields();
+			ArgTestField[] fields = createSimpleArgFields();
 			SingleBuilderTester tester = testFields(type, fields);
 			tester.builderInstance.check();
-			for (ArgField field : fields) {
+			for (ArgTestField field : fields) {
 				verify(tester.builderInstance.bundle).containsKey(field.name);
 			}
 			verifyNoMoreInteractions(tester.builderInstance.bundle);
@@ -157,7 +153,7 @@ public class BuilderTest extends BuilderTestBase {
 	public void testCheckedBuilderWithAllFieldOptional() {
 		for (BuilderType type : CHECKED_TYPES) {
 			SingleBuilderTester tester = testFields(type, createArgFields(
-					SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES, af -> af.optional(true)));
+					SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES, af -> af.optional(true)));
 			tester.builderInstance.check();
 			verifyZeroInteractions(tester.builderInstance.bundle);
 		}
@@ -166,14 +162,14 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testCheckedBuilderWithSomeFieldOptional() {
 		for (BuilderType type : CHECKED_TYPES) {
-			ArgField[] fields = createArgFields(SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES,
+			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
 					Function.identity());
-			ArgField[] optionalFields = createArgFields(SupportedTypeTest.SUPPORTED_ARRAY_CLASSES,
+			ArgTestField[] optionalFields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES,
 					af -> af.optional(true));
 			SingleBuilderTester tester = testFields(type,
-					concatArray(ArgField.class, fields, optionalFields));
+					concatArray(ArgTestField.class, fields, optionalFields));
 			tester.builderInstance.check();
-			for (ArgField field : fields) {
+			for (ArgTestField field : fields) {
 				verify(tester.builderInstance.bundle).containsKey(field.name);
 			}
 			verifyNoMoreInteractions(tester.builderInstance.bundle);
@@ -183,12 +179,12 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testUncheckedBuilderShouldNotCheck() {
 		for (BuilderType type : UNCHECKED_TYPES) {
-			ArgField[] fields = Stream.concat(
-					createArgFieldStream(SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES,
+			ArgTestField[] fields = Stream.concat(
+					createArgFieldStream(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
 							Function.identity()),
-					createArgFieldStream(SupportedTypeTest.SUPPORTED_ARRAY_CLASSES,
+					createArgFieldStream(SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES,
 							af -> af.optional(true)))
-					.toArray(ArgField[]::new);
+					.toArray(ArgTestField[]::new);
 			SingleBuilderTester tester = testFields(type, fields);
 			tester.builderInstance.check();
 			verifyZeroInteractions(tester.builderInstance.bundle);
@@ -198,14 +194,14 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testSkipAll() {
 		for (BuilderType type : BuilderType.values()) {
-			ArgField[] fields = createArgFields(SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES,
+			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
 					af -> af.skip(true));
 			SingleBuilderTester tester = testFields(type, fields);
 
-			for (ArgField field : fields) {
+			for (ArgTestField field : fields) {
 				tester.filterAndCountMethod(0,
 						m -> methodParameterMatch(m, field.clazz) && isMethodPublic(m), methods -> {
-							throw new AssertionError("Field " + field + " is skipped but the"
+							throw new AssertionError("TestField " + field + " is skipped but the"
 									+ " builder  still has the accessor for it, found: " + methods);
 						});
 			}
@@ -215,20 +211,20 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testSkipSome() {
 		for (BuilderType type : BuilderType.values()) {
-			ArgField[] fields = createArgFields(SupportedTypeTest.SUPPORTED_SIMPLE_CLASSES,
+			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
 					Function.identity());
-			ArgField[] skippedFields = createArgFields(SupportedTypeTest.SUPPORTED_ARRAY_CLASSES,
+			ArgTestField[] skippedFields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES,
 					af -> af.skip(true));
 			SingleBuilderTester tester = testFields(type,
-					concatArray(ArgField.class, fields, skippedFields));
-			for (ArgField field : fields) {
+					concatArray(ArgTestField.class, fields, skippedFields));
+			for (ArgTestField field : fields) {
 				tester.assertMethodCountMatched(1,
 						m -> methodParameterMatch(m, field.clazz) && isMethodPublic(m));
 			}
-			for (ArgField field : skippedFields) {
+			for (ArgTestField field : skippedFields) {
 				tester.filterAndCountMethod(0,
 						m -> methodParameterMatch(m, field.clazz) && isMethodPublic(m), methods -> {
-							throw new AssertionError("Field " + field + " is skipped but the"
+							throw new AssertionError("TestField " + field + " is skipped but the"
 									+ " builder  still has the accessor for it, found: " + methods);
 						});
 			}
@@ -240,7 +236,7 @@ public class BuilderTest extends BuilderTestBase {
 	public void testChainedBuilderHasCorrectSignature() {
 		for (BuilderType type : Arrays.asList(BuilderType.CHAINED_CHECKED,
 				BuilderType.CHAINED_UNCHECKED)) {
-			ArgField field = testField();
+			ArgTestField field = testField();
 			BuilderTestEnvironment environment = testSingleClass(argConfigForType(type), "test",
 					Fragment.class, field);
 			SingleBuilderTester tester = environment.assertAllBuildersGeneratedAndValid().get(0);
@@ -253,7 +249,7 @@ public class BuilderTest extends BuilderTestBase {
 	@Test
 	public void testVoidBuilderHasCorrectSignature() {
 		for (BuilderType type : Arrays.asList(BuilderType.CHECKED, BuilderType.UNCHECKED)) {
-			ArgField field = testField();
+			ArgTestField field = testField();
 			BuilderTestEnvironment environment = testSingleClass(argConfigForType(type), "test",
 					Fragment.class, field);
 			SingleBuilderTester tester = environment.assertAllBuildersGeneratedAndValid().get(0);

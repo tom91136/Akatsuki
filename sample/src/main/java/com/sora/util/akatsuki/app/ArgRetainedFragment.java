@@ -24,8 +24,6 @@ public class ArgRetainedFragment extends Fragment {
 		super.onCreate(savedInstanceState);
 		Akatsuki.restore(this, savedInstanceState);
 
-
-
 	}
 
 	@Override

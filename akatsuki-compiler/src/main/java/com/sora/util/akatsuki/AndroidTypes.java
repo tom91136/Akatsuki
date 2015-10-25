@@ -2,9 +2,6 @@ package com.sora.util.akatsuki;
 
 import javax.lang.model.type.DeclaredType;
 
-/**
- * Project: Akatsuki Created by tom91136 on 14/07/2015.
- */
 public enum AndroidTypes {
 
 	// @formatter:off

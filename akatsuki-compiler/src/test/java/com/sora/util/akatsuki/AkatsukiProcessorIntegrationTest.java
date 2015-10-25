@@ -23,10 +23,10 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeSpec.Builder;
 
 @RunWith(Enclosed.class)
-public class AkatsukiProcessorTest extends TestBase {
+public class AkatsukiProcessorIntegrationTest extends IntegrationTestBase {
 
 	@RunWith(Theories.class)
-	public static class SourceNameTests extends TestBase {
+	public static class SourceNameTests extends IntegrationTestBase {
 
 		static class GeneratedClassWithName {
 			final JavaFileObject object;
@@ -58,8 +58,7 @@ public class AkatsukiProcessorTest extends TestBase {
 						.collect(Collectors.joining("$"));
 				lastBuilder = currentBuilder;
 			}
-			final JavaFile file = JavaFile.builder(TEST_PACKAGE, lastBuilder.build())
-					.build();
+			final JavaFile file = JavaFile.builder(TEST_PACKAGE, lastBuilder.build()).build();
 			final JavaFileObject object = JavaFileObjects
 					.forSourceString(TEST_PACKAGE + "." + classes[0], file.toString());
 
@@ -83,8 +82,7 @@ public class AkatsukiProcessorTest extends TestBase {
 			final SuccessfulCompilationClause clause = assertTestClass(generated.object)
 					.compilesWithoutError();
 			for (String name : generated.names) {
-				clause.and().generatesFileNamed(StandardLocation.SOURCE_OUTPUT,
-						TEST_PACKAGE,
+				clause.and().generatesFileNamed(StandardLocation.SOURCE_OUTPUT, TEST_PACKAGE,
 						Internal.generateRetainerClassName(name) + ".java");
 			}
 		}
@@ -96,8 +94,8 @@ public class AkatsukiProcessorTest extends TestBase {
 	public void testSourceNotGeneratedWhenAllSkipped() throws IOException {
 		AnnotationSpec spec = AnnotationSpec.builder(Retained.class).addMember("skip", "$L", true)
 				.build();
-		final JavaFileObject testClass = CodeGenUtils.createTestClass(
-				field(STRING_TYPE, "foo", spec), field(STRING_TYPE, "bar", spec));
+		final JavaFileObject testClass = CodeGenUtils
+				.createTestClass(field(STRING_TYPE, "foo", spec), field(STRING_TYPE, "bar", spec));
 
 		// the assertion error is expected because no file should be generated
 		assertTestClass(testClass).compilesWithoutError().and().generatesFileNamed(

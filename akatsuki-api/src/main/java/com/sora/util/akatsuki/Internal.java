@@ -1,6 +1,7 @@
 package com.sora.util.akatsuki;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 
 import android.app.Activity;
 import android.app.Fragment;
@@ -10,8 +11,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-
-import com.sora.util.akatsuki.Akatsuki.LoggingLevel;
 
 /**
  * This is not the class you are looking for (unless you want to create your own
@@ -86,7 +85,7 @@ public class Internal {
 					retainerClass = (Class<? extends BundleRetainer>) Class.forName(className, true,
 							loader);
 				} catch (ClassNotFoundException ignored) {
-					Log.i(Akatsuki.TAG, "retainer class does not exist for fqcn " + className
+					Log.i(Akatsuki.TAG, "Retainer class does not exist for fqcn " + className
 							+ " trying inheritance next");
 					// can't find it, moving on
 				}
@@ -120,7 +119,7 @@ public class Internal {
 			return null;
 		String generatedClassName = generateRetainerClassName(name);
 		try {
-			if (Akatsuki.loggingLevel == LoggingLevel.VERBOSE)
+			if (Akatsuki.loggingLevel == AkatsukiConfig.LoggingLevel.VERBOSE)
 				Log.i(Akatsuki.TAG, "traversing hierarchy to find retainer for class " + clazz);
 			return Class.forName(generatedClassName, true, loader);
 		} catch (ClassNotFoundException e) {
@@ -139,6 +138,10 @@ public class Internal {
 		return prefix + "$$" + BundleRetainer.class.getSimpleName();
 	}
 
+	static String generateBuilderClassName(CharSequence prefix) {
+		return prefix + "$$" + BundleRetainer.class.getSimpleName();
+	}
+
 	public static abstract class ArgBuilder<T> {
 
 		protected Bundle bundle;
@@ -153,6 +156,18 @@ public class Internal {
 			// for subclass to do some checking
 		}
 
+	}
+
+	// TODO allow the use of final fields in @Arg and possibly @Retained?
+	static void setFieldUnsafe(Object object, Class<?> clazz, String fieldName, Object value) {
+		try {
+			Field field = clazz.getField(fieldName);
+			field.setAccessible(true);
+			field.set(object, value);
+		} catch (NoSuchFieldException | IllegalAccessException e) {
+			throw new RuntimeException("unable to set field [" + fieldName + "] in class " + clazz
+					+ " on object " + object + " with value " + value, e);
+		}
 	}
 
 	public static class ClassArgBuilder<T> extends ArgBuilder<T> {

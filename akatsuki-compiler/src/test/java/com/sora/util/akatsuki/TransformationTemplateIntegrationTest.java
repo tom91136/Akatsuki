@@ -20,7 +20,7 @@ import com.sora.util.akatsuki.TypeConstraint.Bound;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.FieldSpec.Builder;
 
-public class TransformationTemplateTest extends RetainedStateTestBase {
+public class TransformationTemplateIntegrationTest extends RetainedStateIntegrationTestBase {
 
 	@Test
 	public void testClassConstraint() {
@@ -82,9 +82,9 @@ public class TransformationTemplateTest extends RetainedStateTestBase {
 	// leave unimplemented for now
 	// @Test
 	// public void testCompoundType() {
-	// final JavaSource testClass = new JavaSource(TEST_PACKAGE,
+	// final TestSource testClass = new TestSource(TEST_PACKAGE,
 	// generateClassName(),
-	// Modifier.PUBLIC).fields(new RetainedField(List.class, "a",
+	// Modifier.PUBLIC).fields(new RetainedTestField(List.class, "a",
 	// "new ArrayList<>()", StringObject.class)
 	// .createFieldSpec());
 	// testClass.builderTransformer(
@@ -94,8 +94,9 @@ public class TransformationTemplateTest extends RetainedStateTestBase {
 	// final TestEnvironment environment = new TestEnvironment(this, testClass);
 	//
 	// environment.invokeSaveAndRestore();
-	// environment.testSaveRestoreInvocation(n -> true, TestEnvironment.CLASS,
-	// Collections.singleton(new RetainedField(List.class, "a",
+	// environment.testSaveRestoreInvocation(n -> true,
+	// TestEnvironment.CLASS_EQ,
+	// Collections.singleton(new RetainedTestField(List.class, "a",
 	// StringObject.class)));
 	//
 	// }
@@ -147,26 +148,26 @@ public class TransformationTemplateTest extends RetainedStateTestBase {
 			Class<?>... constraints) {
 		final String objectFqcn = staticClass.getCanonicalName();
 
-		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-				Modifier.PUBLIC).fields(
-						new RetainedField(StringObject.class, "a", "new " + objectFqcn + "(\"A\")")
-								.createFieldSpec());
-		testClass.appendTransformation((builder, source) -> builder.addAnnotation
-				                                                            (createTransformationTemplate(bound, staticClass, constraints)));
+		final TestSource testClass = new TestSource(TEST_PACKAGE, generateClassName(),
+				Modifier.PUBLIC)
+						.appendFields(new RetainedTestField(StringObject.class, "a", "new " +
+								                                                             objectFqcn + "(\"A\")").createFieldSpec());
+		testClass.appendTransformation((builder, source) -> builder
+				.addAnnotation(createTransformationTemplate(bound, staticClass, constraints)));
 
 		final RetainedStateTestEnvironment environment = new RetainedStateTestEnvironment(this,
 				testClass);
 
 		environment.tester().invokeSaveAndRestore();
-		environment.tester().testSaveRestoreInvocation(n -> true, BundleRetainerTester.CLASS,
-				Collections.singleton(new RetainedField(String.class, "a")));
+		environment.tester().testSaveRestoreInvocation(n -> true, BundleRetainerTester.CLASS_EQ,
+				Collections.singleton(new RetainedTestField(String.class, "a")), f -> 1);
 	}
 
 	protected void testTypeConverter(boolean registered) {
-		final Field retainedField = new Field(StringObject.class, "a",
+		final TestField retainedField = new TestField(StringObject.class, "a",
 				"new " + StringObject.class.getCanonicalName() + "(\"A\")");
 		final Builder fieldBuilder = retainedField.fieldSpecBuilder();
-		final ArrayList<JavaSource> sources = new ArrayList<>();
+		final ArrayList<TestSource> sources = new ArrayList<>();
 		if (registered) {
 			fieldBuilder.addAnnotation(Retained.class);
 			final AnnotationSpec constraintSpec = AnnotationSpec.builder(TypeConstraint.class)
@@ -179,9 +180,10 @@ public class TransformationTemplateTest extends RetainedStateTestBase {
 					.addMember("value", "$L", filterSpec.build()).build();
 
 			final String converterName = generateClassName();
-			JavaSource converter = new JavaSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
-					.appendTransformation((builder, source) -> builder.superclass
-							                                                   (StringObjectTypeConverter.class).addAnnotation(converterSpec));
+			TestSource converter = new TestSource(TEST_PACKAGE, converterName, Modifier.PUBLIC)
+					.appendTransformation(
+							(builder, source) -> builder.superclass(StringObjectTypeConverter.class)
+									.addAnnotation(converterSpec));
 			sources.add(converter);
 
 		} else {
@@ -189,8 +191,8 @@ public class TransformationTemplateTest extends RetainedStateTestBase {
 			fieldBuilder.addAnnotation(AnnotationSpec.builder(With.class)
 					.addMember("value", "$T.class", StringObjectTypeConverter.class).build());
 		}
-		final JavaSource testClass = new JavaSource(TEST_PACKAGE, generateClassName(),
-				Modifier.PUBLIC).fields(fieldBuilder.build());
+		final TestSource testClass = new TestSource(TEST_PACKAGE, generateClassName(),
+				Modifier.PUBLIC).appendFields(fieldBuilder.build());
 		// out test class always goes in front
 		sources.add(0, testClass);
 		final RetainedStateTestEnvironment environment = new RetainedStateTestEnvironment(this,

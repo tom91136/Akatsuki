@@ -17,21 +17,21 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeSpec.Builder;
 
-public final class JavaSource {
+public final class TestSource {
 
 	public final String packageName;
 	public final String className;
 	public final List<FieldSpec> specs = new ArrayList<>();
-	public final List<JavaSource> innerClasses = new ArrayList<>();
+	public final List<TestSource> innerClasses = new ArrayList<>();
 	public final Modifier[] modifiers;
-	private JavaSource superClass;
+	private TestSource superClass;
 
-	private final List<BiFunction<Builder, JavaSource, Builder>> builderTransformers = new ArrayList<>();
+	private final List<BiFunction<Builder, TestSource, Builder>> builderTransformers = new ArrayList<>();
 
 	/**
 	 * Creates a top level class
 	 */
-	public JavaSource(String packageName, String className, Modifier... modifiers) {
+	public TestSource(String packageName, String className, Modifier... modifiers) {
 		this.packageName = packageName;
 		this.className = className;
 		this.modifiers = modifiers;
@@ -40,28 +40,38 @@ public final class JavaSource {
 	/**
 	 * Creates a package-less class to be used as an static inner class
 	 */
-	public JavaSource(String className, Modifier... modifiers) {
+	public TestSource(String className, Modifier... modifiers) {
 		this.packageName = null;
 		this.className = className;
 		this.modifiers = modifiers;
 	}
 
-	public JavaSource fields(FieldSpec... specs) {
+	public TestSource appendFields(FieldSpec... specs) {
 		this.specs.addAll(Arrays.asList(specs));
 		return this;
 	}
 
-	public JavaSource fields(Collection<FieldSpec> specs) {
+	public TestSource appendFields(Collection<FieldSpec> specs) {
 		this.specs.addAll(specs);
 		return this;
 	}
 
-	public JavaSource innerClasses(JavaSource... sources) {
+	public TestSource appendTestFields(Collection<TestField> fields) {
+		return appendFields(
+				fields.stream().map(TestField::createFieldSpec).toArray(FieldSpec[]::new));
+	}
+
+	public TestSource appendTestFields(TestField... fields) {
+		return appendFields(
+				Arrays.stream(fields).map(TestField::createFieldSpec).toArray(FieldSpec[]::new));
+	}
+
+	public TestSource innerClasses(TestSource... sources) {
 		return this.innerClasses(Arrays.asList(sources));
 	}
 
-	public JavaSource innerClasses(Collection<JavaSource> sources) {
-		for (JavaSource source : sources) {
+	public TestSource innerClasses(Collection<TestSource> sources) {
+		for (TestSource source : sources) {
 			if (source.packageName != null)
 				throw new IllegalArgumentException("inner class " + source
 						+ " contains a package name, it should be a top level class");
@@ -70,7 +80,7 @@ public final class JavaSource {
 		return this;
 	}
 
-	public JavaSource superClass(JavaSource source) {
+	public TestSource superClass(TestSource source) {
 		source.checkInner();
 		this.superClass = source;
 		return this;
@@ -84,14 +94,14 @@ public final class JavaSource {
 		if (superClass != null)
 			builder.superclass(ClassName.get(superClass.packageName, superClass.className));
 
-		for (BiFunction<Builder, JavaSource, Builder> function : builderTransformers) {
+		for (BiFunction<Builder, TestSource, Builder> function : builderTransformers) {
 			builder = function.apply(builder, this);
 		}
 
 		return builder;
 	}
 
-	public JavaSource appendTransformation(BiFunction<Builder, JavaSource, Builder> function) {
+	public TestSource appendTransformation(BiFunction<Builder, TestSource, Builder> function) {
 		this.builderTransformers.add(function);
 		return this;
 	}
@@ -124,7 +134,7 @@ public final class JavaSource {
 
 	@Override
 	public String toString() {
-		return "JavaSource{" + "packageName='" + packageName + '\'' + ", className='" + className
+		return "TestSource{" + "packageName='" + packageName + '\'' + ", className='" + className
 				+ '\'' + ", specs=" + specs + ", innerClasses=" + innerClasses + ", modifiers="
 				+ Arrays.toString(modifiers) + ", superClass=" + superClass + '}';
 	}

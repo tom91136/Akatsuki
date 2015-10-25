@@ -38,15 +38,15 @@ public class CodeGenUtils {
 	public static String createTestSource(String className, Iterable<FieldSpec> fieldSpecs) {
 		TypeSpec testType = TypeSpec.classBuilder(className)
 				.addModifiers(Modifier.PUBLIC, Modifier.FINAL).addFields(fieldSpecs).build();
-		JavaFile javaFile = JavaFile.builder(TestBase.TEST_PACKAGE, testType).build();
+		JavaFile javaFile = JavaFile.builder(IntegrationTestBase.TEST_PACKAGE, testType).build();
 		// javaFile.toString() does the same thing as using a string writer
 		// internally
 		return javaFile.toString();
 	}
 
 	public static JavaFileObject createTestClass(Iterable<FieldSpec> fieldSpecs) {
-		return JavaFileObjects.forSourceString(TestBase.TEST_PACKAGE + "." + TestBase.TEST_CLASS,
-				createTestSource(TestBase.TEST_CLASS, fieldSpecs));
+		return JavaFileObjects.forSourceString(IntegrationTestBase.TEST_PACKAGE + "." + IntegrationTestBase.TEST_CLASS,
+				createTestSource(IntegrationTestBase.TEST_CLASS, fieldSpecs));
 	}
 
 	public static JavaFileObject createTestClass(FieldSpec... specs) {
