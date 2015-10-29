@@ -75,8 +75,17 @@ public class Internal {
 							throw new RuntimeException(
 									"unable to obtain a package name from class " + clazz);
 						}
+						String builderClassName = clazz.getSimpleName() + "Builder";
+
+						int indexOfDollar = builderClassName.lastIndexOf('$');
+						if (indexOfDollar != -1) {
+							builderClassName = builderClassName.substring(indexOfDollar+1 ,
+									builderClassName.length());
+						}
+
 						className = generateRetainerClassName(packageName + ".Builders$"
-								+ clazz.getSimpleName() + "Builder$" + clazz.getSimpleName());
+								+ builderClassName + "$" + builderClassName);
+						Log.i(Akatsuki.TAG, "bcn -> " + builderClassName);
 					} else {
 						throw new AssertionError(
 								"Unable to create retainer for unknown class " + type);
@@ -90,7 +99,8 @@ public class Internal {
 					// can't find it, moving on
 				}
 			}
-			if (retainerClass == null)
+			// recursive
+			if (retainerClass == null && type == Retained.class)
 				retainerClass = (Class<? extends BundleRetainer>) findClass(loader, clazz);
 			if (retainerClass == null)
 				throw new RuntimeException("Unable to find generated class for " + fqcn

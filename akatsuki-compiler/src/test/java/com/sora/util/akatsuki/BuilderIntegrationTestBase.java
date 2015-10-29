@@ -45,6 +45,8 @@ public abstract class BuilderIntegrationTestBase extends IntegrationTestBase {
 
 		// mockito explodes if the classes are not public...
 		// we use abstract just in case of our superclass is abstract too
+
+
 		final TestSource source = new TestSource(packageName, generateClassName(), Modifier.PUBLIC,
 				Modifier.ABSTRACT).appendFields(set.stream().map(f -> {
 			if (!(f instanceof ArgTestField)) {

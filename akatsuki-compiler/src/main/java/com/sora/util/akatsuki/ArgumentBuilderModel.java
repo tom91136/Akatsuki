@@ -37,6 +37,7 @@ import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.Analysis;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.InvocationType;
 import com.sora.util.akatsuki.analyzers.Element;
 import com.sora.util.akatsuki.models.BaseModel;
+import com.sora.util.akatsuki.models.ClassInfo;
 import com.sora.util.akatsuki.models.FieldModel;
 import com.sora.util.akatsuki.models.SourceClassModel;
 import com.sora.util.akatsuki.models.SourceTreeModel;
@@ -215,8 +216,10 @@ public class ArgumentBuilderModel extends BaseModel
 		}
 
 		builderTypeBuilder.addType(new BundleCodeGenerator(context, model, resolver,
-				Optional.of(modelPredicate), EnumSet.of(Action.RESTORE), Optional.empty())
-						.createModel().toBuilder().addModifiers(Modifier.STATIC).build());
+				Optional.of(modelPredicate), EnumSet.of(Action.RESTORE), Optional.empty(),
+				new ClassInfo(model.fullyQualifiedPackageName(),
+						Internal.generateRetainerClassName(builderName))).createModel().toBuilder()
+								.addModifiers(Modifier.STATIC).build());
 
 		if (config.order() == Order.DSC)
 			Collections.reverse(fields);
@@ -225,7 +228,7 @@ public class ArgumentBuilderModel extends BaseModel
 				.getClassFromAnnotationMethod(config::concludingBuilder, VoidBuilder.class);
 
 		DeclaredType concluderType = possibleConcluderType.orElse(supportedMap.keySet().stream()
-				.filter(m -> context.utils().isAssignable( model.mirror(), m, true)).findFirst()
+				.filter(m -> context.utils().isAssignable(model.mirror(), m, true)).findFirst()
 				.map(supportedMap::get)
 				.orElseThrow(() -> new RuntimeException(model.fullyQualifiedName()
 						+ " is not supported directly(detected as " + model.mirror() + ")."
@@ -251,7 +254,6 @@ public class ArgumentBuilderModel extends BaseModel
 			generator = new SubclassBuilderGenerator();
 			break;
 		}
-
 
 		generator.build(
 				new PartialModel(config, model.fullyQualifiedPackageName(), builderName,

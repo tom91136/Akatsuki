@@ -28,7 +28,8 @@ public class RetainedStateModel extends GenerationTargetModel<TypeSpec>
 			SourceTreeModel treeModel, TypeAnalyzerResolver resolver) {
 		super(context, classModel, treeModel);
 		generator = new BundleCodeGenerator(context, classModel(), resolver, Optional.of(this),
-				EnumSet.allOf(Action.class), Optional.of(this));
+				EnumSet.allOf(Action.class), Optional.of(this),
+				classModel().asClassInfo().transform(null, Internal::generateRetainerClassName));
 	}
 
 	@Override

@@ -21,7 +21,6 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 		this.sources = Collections.unmodifiableList(sources);
 		try {
 
-
 			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 					base.processors(), ImmutableList.of("-Aakatsuki.loggingLevel=VERBOSE"),
 					sources.stream().map(TestSource::generateFileObject)
@@ -35,7 +34,8 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 		initialize();
 	}
 
-	public BaseTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
+	public BaseTestEnvironment(IntegrationTestBase base, TestSource source,
+			TestSource... required) {
 		this(base, Lists.asList(source, required));
 	}
 
@@ -77,27 +77,31 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 
 	@Override
 	public String printReport() {
-		StringBuilder builder = new StringBuilder("\n=======Test status report=======");
-		builder.append("\n\u2022Compiler Input:\n");
-		for (TestSource source : sources) {
-			builder.append("\n\tFully qualified name: ").append(source.fqcn()).append("\n");
-			final String sourceCode = source.generateSource();
-			final String[] lines = NEW_LINE_PATTERN.split(sourceCode);
-			String format = String.format("%%0%dd", String.valueOf(lines.length).length());
-			for (int i = 0; i < lines.length; i++) {
-				builder.append("\t\t").append(String.format(format, i + 1)).append('.')
-						.append(lines[i]);
-				if (i != lines.length - 1)
-					builder.append("\n");
+		try {
+			StringBuilder builder = new StringBuilder("\n=======Test status report=======");
+			builder.append("\n\u2022Compiler Input:\n");
+			for (TestSource source : sources) {
+				builder.append("\n\tFully qualified name: ").append(source.fqcn()).append("\n");
+				final String sourceCode = source.generateSource();
+				final String[] lines = NEW_LINE_PATTERN.split(sourceCode);
+				String format = String.format("%%0%dd", String.valueOf(lines.length).length());
+				for (int i = 0; i < lines.length; i++) {
+					builder.append("\t\t").append(String.format(format, i + 1)).append('.')
+							.append(lines[i]);
+					if (i != lines.length - 1)
+						builder.append("\n");
+				}
 			}
+			builder.append("\n\u2022Annotation processor output:");
+			if (result == null || result.sources.isEmpty()) {
+				builder.append("\n\tNo sources generated.");
+			} else {
+				builder.append(result.printGeneratedSources("\t"));
+			}
+			return builder.toString();
+		} catch (Exception e) {
+			throw new RuntimeException("Unable to print report for sources:" + sources, e);
 		}
-		builder.append("\n\u2022Annotation processor output:");
-		if (result == null || result.sources.isEmpty()) {
-			builder.append("\n\tNo sources generated.");
-		} else {
-			builder.append(result.printGeneratedSources("\t"));
-		}
-		return builder.toString();
 	}
 
 }

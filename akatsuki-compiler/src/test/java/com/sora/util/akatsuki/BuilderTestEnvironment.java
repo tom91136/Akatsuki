@@ -67,7 +67,7 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 				// <package>.<builderName>.<retainerName>
 				retainerClass = environment.classLoader()
 						.loadClass(Internal.generateRetainerClassName(builderParentName + "$"
-								+ builderClassName + "$" + source.className));
+								+ builderClassName + "$" + builderClassName));
 
 				try {
 					builderClassMethodWithBundle = builderParentClass.getMethod(source.className,

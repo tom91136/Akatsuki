@@ -25,6 +25,7 @@ public final class TestSource {
 	public final List<TestSource> innerClasses = new ArrayList<>();
 	public final Modifier[] modifiers;
 	private TestSource superClass;
+	private TestSource enclosingClass;
 
 	private final List<BiFunction<Builder, TestSource, Builder>> builderTransformers = new ArrayList<>();
 
@@ -75,6 +76,7 @@ public final class TestSource {
 			if (source.packageName != null)
 				throw new IllegalArgumentException("inner class " + source
 						+ " contains a package name, it should be a top level class");
+			source.enclosingClass = this;
 		}
 		this.innerClasses.addAll(sources);
 		return this;
@@ -128,8 +130,8 @@ public final class TestSource {
 	}
 
 	public String fqcn() {
-		checkInner();
-		return packageName + "." + className;
+		return (enclosingClass != null) ? (enclosingClass.fqcn() + "$" + className)
+				: (packageName + "" + "." + className);
 	}
 
 	@Override

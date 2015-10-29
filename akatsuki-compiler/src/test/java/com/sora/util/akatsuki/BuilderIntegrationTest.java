@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.junit.Test;
@@ -19,9 +20,13 @@ import android.app.Service;
 import android.support.v4.app.Fragment;
 
 import com.sora.util.akatsuki.ArgConfig.BuilderType;
+import com.sora.util.akatsuki.BuilderIntegrationTest.A.A$B;
 import com.sora.util.akatsuki.BuilderTestEnvironment.SingleBuilderTester;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.Accessor;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
+
+import javax.lang.model.element.Modifier;
+import javax.management.RuntimeMBeanException;
 
 public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 
@@ -71,6 +76,34 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 		environment.assertAllBuildersGeneratedAndValid();
 	}
 
+	public static class A{
+		public static class A$B{
+
+		}
+	}
+
+	@Test
+	public void testStaticInnerClassHasCorrectStructure() {
+		TestSource topLevel = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		TestSource last = topLevel;
+		for (int i = 0; i < 5; i++) {
+			TestSource inner = createTestSource(null, Fragment.class, testField())
+					.appendTransformation((b, s) -> b.addModifiers(Modifier.STATIC));
+			last.innerClasses(inner);
+			last = inner;
+		}
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, topLevel);
+		environment.assertAllBuildersGeneratedAndValid();
+		System.out.println("cc->" + A$B.class.getName());
+
+		try {
+			Class.forName(A$B.class.getName());
+		} catch (ClassNotFoundException e) {
+			//e.printStackTrace();
+			System.out.println("boom1");
+		}
+	}
+
 	@Test(expected = AssertionError.class)
 	public void testBuilderRetainerSaveShouldFail() throws Exception {
 		testSingleBuilder().retainerTester().invokeSave();
@@ -85,7 +118,7 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 		BundleRetainerTester tester = testers.get(0).retainerTester();
 		tester.invokeRestore();
 		tester.executeTestCaseWithFields(new HashSet<>(Arrays.asList(fields)), n -> true,
-				BundleRetainerTester.CLASS_EQ, Accessor.GET, f ->1);
+				BundleRetainerTester.CLASS_EQ, Accessor.GET, f -> 1);
 	}
 
 	@Test
@@ -152,8 +185,9 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	@Test
 	public void testCheckedBuilderWithAllFieldOptional() {
 		for (BuilderType type : CHECKED_TYPES) {
-			SingleBuilderTester tester = testFields(type, createArgFields(
-					SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES, af -> af.optional(true)));
+			SingleBuilderTester tester = testFields(type,
+					createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
+							af -> af.optional(true)));
 			tester.builderInstance.check();
 			verifyZeroInteractions(tester.builderInstance.bundle);
 		}
@@ -162,10 +196,10 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	@Test
 	public void testCheckedBuilderWithSomeFieldOptional() {
 		for (BuilderType type : CHECKED_TYPES) {
-			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
-					Function.identity());
-			ArgTestField[] optionalFields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES,
-					af -> af.optional(true));
+			ArgTestField[] fields = createArgFields(
+					SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES, Function.identity());
+			ArgTestField[] optionalFields = createArgFields(
+					SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES, af -> af.optional(true));
 			SingleBuilderTester tester = testFields(type,
 					concatArray(ArgTestField.class, fields, optionalFields));
 			tester.builderInstance.check();
@@ -194,8 +228,8 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	@Test
 	public void testSkipAll() {
 		for (BuilderType type : BuilderType.values()) {
-			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
-					af -> af.skip(true));
+			ArgTestField[] fields = createArgFields(
+					SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES, af -> af.skip(true));
 			SingleBuilderTester tester = testFields(type, fields);
 
 			for (ArgTestField field : fields) {
@@ -211,10 +245,10 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	@Test
 	public void testSkipSome() {
 		for (BuilderType type : BuilderType.values()) {
-			ArgTestField[] fields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES,
-					Function.identity());
-			ArgTestField[] skippedFields = createArgFields(SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES,
-					af -> af.skip(true));
+			ArgTestField[] fields = createArgFields(
+					SupportedTypeIntegrationTest.SUPPORTED_SIMPLE_CLASSES, Function.identity());
+			ArgTestField[] skippedFields = createArgFields(
+					SupportedTypeIntegrationTest.SUPPORTED_ARRAY_CLASSES, af -> af.skip(true));
 			SingleBuilderTester tester = testFields(type,
 					concatArray(ArgTestField.class, fields, skippedFields));
 			for (ArgTestField field : fields) {

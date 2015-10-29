@@ -44,7 +44,7 @@ public class BundleCodeGenerator {
 		}
 	}
 
-	private final ClassInfo generatedClassInfo;
+	private final ClassInfo classInfo;
 	private final ProcessorContext context;
 	private final SourceClassModel classModel;
 	private final TypeAnalyzerResolver resolver;
@@ -54,19 +54,19 @@ public class BundleCodeGenerator {
 
 	BundleCodeGenerator(ProcessorContext context, SourceClassModel classModel,
 			TypeAnalyzerResolver resolver, Optional<Predicate<FieldModel>> fieldModelPredicate,
-			EnumSet<Action> action, Optional<FieldTransformation> fieldTransformation) {
+			EnumSet<Action> action, Optional<FieldTransformation> fieldTransformation,
+			ClassInfo info) {
 		this.context = context;
 		this.classModel = classModel;
 		this.resolver = resolver;
 		this.fieldModelPredicate = fieldModelPredicate;
 		this.actions = action;
 		this.fieldTransformation = fieldTransformation;
-		this.generatedClassInfo = classModel.asClassInfo().transform(null,
-				Internal::generateRetainerClassName);
+		this.classInfo = info;
 	}
 
 	public ClassInfo generatedClassInfo() {
-		return generatedClassInfo;
+		return classInfo;
 	}
 
 	public TypeSpec createModel() {
@@ -140,7 +140,7 @@ public class BundleCodeGenerator {
 			}
 		}
 
-		TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(generatedClassInfo.className)
+		TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(classInfo.className)
 				.addModifiers(Modifier.PUBLIC).addTypeVariable(actualClassCapture);
 
 		for (Builder builder : actionBuilderMap.values()) {

@@ -5,12 +5,12 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
+import javax.lang.model.element.Modifier;
+
 import com.sora.util.akatsuki.AkatsukiConfig.Flags;
 import com.sora.util.akatsuki.AkatsukiConfig.LoggingLevel;
 import com.sora.util.akatsuki.AkatsukiConfig.OptFlags;
 import com.sora.util.akatsuki.models.FieldModel;
-
-import javax.lang.model.element.Modifier;
 
 public class Configuration {
 
