@@ -7,6 +7,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -19,6 +20,7 @@ import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.Analysis;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.InvocationType;
 import com.sora.util.akatsuki.analyzers.Element;
+import com.sora.util.akatsuki.models.BaseModel;
 import com.sora.util.akatsuki.models.ClassInfo;
 import com.sora.util.akatsuki.models.FieldModel;
 import com.sora.util.akatsuki.models.SourceClassModel;
@@ -30,52 +32,67 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
-public class BundleCodeGenerator {
+public class BundleRetainerClassBuilder extends BaseModel {
 
-	enum Action {
+	enum Direction {
 		SAVE("save", InvocationType.SAVE), RESTORE("restore", InvocationType.RESTORE);
 
 		final String methodName;
 		final InvocationType type;
 
-		Action(String methodName, InvocationType type) {
+		Direction(String methodName, InvocationType type) {
 			this.methodName = methodName;
 			this.type = type;
 		}
 	}
 
-	private final ClassInfo classInfo;
-	private final ProcessorContext context;
 	private final SourceClassModel classModel;
-	private final TypeAnalyzerResolver resolver;
-	private final Optional<Predicate<FieldModel>> fieldModelPredicate;
-	private final EnumSet<Action> actions;
-	private final Optional<FieldTransformation> fieldTransformation;
+	private final EnumSet<Direction> directions;
+	private final Function<ClassInfo, ClassInfo> classInfoFunction;
+	private final Function<ClassInfo, ClassInfo> superClassInfoFunction;
 
-	BundleCodeGenerator(ProcessorContext context, SourceClassModel classModel,
-			TypeAnalyzerResolver resolver, Optional<Predicate<FieldModel>> fieldModelPredicate,
-			EnumSet<Action> action, Optional<FieldTransformation> fieldTransformation,
-			ClassInfo info) {
-		this.context = context;
+	private Optional<Predicate<FieldModel>> fieldModelPredicate = Optional.empty();
+	private Optional<AnalysisTransformation> analysisTransformation = Optional.empty();
+	private Optional<BundleContext> bundleContext = Optional.empty();
+
+	BundleRetainerClassBuilder(ProcessorContext context, SourceClassModel classModel,
+			EnumSet<Direction> direction, Function<ClassInfo, ClassInfo> classInfoFunction,
+			Function<ClassInfo, ClassInfo> superClassInfoFunction) {
+		super(context);
 		this.classModel = classModel;
-		this.resolver = resolver;
-		this.fieldModelPredicate = fieldModelPredicate;
-		this.actions = action;
-		this.fieldTransformation = fieldTransformation;
-		this.classInfo = info;
+		this.directions = direction;
+		this.classInfoFunction = classInfoFunction;
+		this.superClassInfoFunction = superClassInfoFunction;
 	}
 
-	public ClassInfo generatedClassInfo() {
-		return classInfo;
+	public BundleRetainerClassBuilder withFieldPredicate(Predicate<FieldModel> modelPredicate) {
+		this.fieldModelPredicate = Optional.of(modelPredicate);
+		return this;
 	}
 
-	public TypeSpec createModel() {
+	public BundleRetainerClassBuilder withAnalysisTransformation(
+			AnalysisTransformation transformation) {
+		this.analysisTransformation = Optional.of(transformation);
+		return this;
+	}
 
-		final SimpleBundleContext bundleContext = new SimpleBundleContext("source", "bundle");
+	public BundleRetainerClassBuilder withBundleContext(BundleContext context) {
+		this.bundleContext = Optional.of(context);
+		return this;
+	}
+
+	// public ClassInfo classInfo() {
+	// return classInfo;
+	// }
+
+	public TypeSpec.Builder build() {
+
+		BundleContext bundleContext = this.bundleContext
+				.orElse(new SimpleBundleContext("source", "bundle"));
 
 		final ClassName sourceClassName = ClassName.get(classModel.originatingElement());
 
-		TypeVariableName actualClassCapture = TypeVariableName.get("T", sourceClassName);
+		TypeVariableName actualClassCapture = SourceUtils.T_extends(sourceClassName);
 
 		final ParameterSpec sourceSpec = ParameterSpec
 				.builder(actualClassCapture, bundleContext.sourceObjectName(), Modifier.FINAL)
@@ -86,18 +103,18 @@ public class BundleCodeGenerator {
 						bundleContext.bundleObjectName(), Modifier.FINAL)
 				.build();
 
-		EnumMap<Action, Builder> actionBuilderMap = new EnumMap<>(Action.class);
+		EnumMap<Direction, Builder> actionBuilderMap = new EnumMap<>(Direction.class);
 
 		// we implement the interface here, all methods action must actually be
 		// there
-		for (Action action : Action.values()) {
-			final Builder saveMethodBuilder = MethodSpec.methodBuilder(action.methodName)
+		for (Direction direction : Direction.values()) {
+			final Builder saveMethodBuilder = MethodSpec.methodBuilder(direction.methodName)
 					.addModifiers(Modifier.PUBLIC).returns(void.class).addParameter(sourceSpec)
 					.addParameter(bundleSpec);
-			actionBuilderMap.put(action, saveMethodBuilder);
+			actionBuilderMap.put(direction, saveMethodBuilder);
 			if (classModel.directSuperModel().isPresent()) {
 				String superInvocation = "super.$L($L, $L)";
-				saveMethodBuilder.addStatement(superInvocation, action.methodName,
+				saveMethodBuilder.addStatement(superInvocation, direction.methodName,
 						bundleContext.sourceObjectName(), bundleContext.bundleObjectName());
 			}
 		}
@@ -105,10 +122,10 @@ public class BundleCodeGenerator {
 		List<Element<TypeMirror>> elements = classModel.fields().stream().map(Element::new)
 				.collect(Collectors.toList());
 
-		EnumSet<Action> emptyActions = EnumSet.complementOf(this.actions);
+		EnumSet<Direction> emptyDirections = EnumSet.complementOf(this.directions);
 
-		for (Action action : emptyActions) {
-			actionBuilderMap.get(action).addCode("throw new $T($S);", AssertionError.class,
+		for (Direction direction : emptyDirections) {
+			actionBuilderMap.get(direction).addCode("throw new $T($S);", AssertionError.class,
 					"Unused action, should not be called at all");
 		}
 
@@ -116,7 +133,7 @@ public class BundleCodeGenerator {
 			if (!fieldModelPredicate.orElseGet(() -> fm -> true).test(element.model()))
 				continue;
 
-			final CascadingTypeAnalyzer<?, ?, ?> strategy = resolver.resolve(element);
+			final CascadingTypeAnalyzer<?, ?, ?> strategy = context.resolver().resolve(element);
 			if (strategy == null) {
 				context.messager().printMessage(Kind.ERROR,
 						"unsupported field, reflected type is " + element.refinedMirror()
@@ -124,11 +141,12 @@ public class BundleCodeGenerator {
 						element.originatingElement());
 			} else {
 				try {
-					for (Action action : actions) {
-						Analysis analysis = strategy.transform(bundleContext, element, action.type);
-						fieldTransformation
-								.ifPresent(ft -> ft.transform(context, action, element, analysis));
-						actionBuilderMap.get(action)
+					for (Direction direction : directions) {
+						Analysis analysis = strategy.transform(bundleContext, element,
+								direction.type);
+						analysisTransformation.ifPresent(
+								ft -> ft.transform(context, direction, element, analysis));
+						actionBuilderMap.get(direction)
 								.addCode(JavaPoetUtils.escapeStatement(analysis.preEmitOnce()
 										+ analysis.emit() + analysis.postEmitOnce()));
 					}
@@ -140,7 +158,8 @@ public class BundleCodeGenerator {
 			}
 		}
 
-		TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(classInfo.className)
+		TypeSpec.Builder typeSpecBuilder = TypeSpec
+				.classBuilder(classInfoFunction.apply(classModel.asClassInfo()).className)
 				.addModifiers(Modifier.PUBLIC).addTypeVariable(actualClassCapture);
 
 		for (Builder builder : actionBuilderMap.values()) {
@@ -150,21 +169,18 @@ public class BundleCodeGenerator {
 		Optional<SourceClassModel> superModel = classModel.directSuperModel();
 
 		if (superModel.isPresent()) {
-			ClassInfo superClassModel = superModel.get().asClassInfo().transform(null,
-					Internal::generateRetainerClassName);
-			final ClassName className = ClassName.get(superClassModel.fullyQualifiedPackageName,
-					superClassModel.className);
-
-			typeSpecBuilder.superclass(ParameterizedTypeName.get(className, T));
+			ClassName className = superClassInfoFunction.apply(superModel.get().asClassInfo())
+					.toClassName();
+			typeSpecBuilder.superclass(type(className, T));
 		} else {
 			final ParameterizedTypeName interfaceName = type(BundleRetainer.class, T);
 			typeSpecBuilder.addSuperinterface(interfaceName);
 		}
-		return typeSpecBuilder.build();
+		return typeSpecBuilder;
 	}
 
-	public interface FieldTransformation {
-		void transform(ProcessorContext context, Action action, Element<?> element,
+	public interface AnalysisTransformation {
+		void transform(ProcessorContext context, Direction direction, Element<?> element,
 				Analysis analysis);
 	}
 

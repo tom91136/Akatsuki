@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.neenbedankt.android-apt'
+repositories {
 
+  //  maven { url "https://jitpack.io" }
+}
 
 android {
     compileSdkVersion 23
@@ -27,6 +30,10 @@ dependencies {
     compile project(':akatsuki-api')
     compile project(':akatsuki-parceler')
     apt project(':akatsuki-compiler')
+
+//    compile 'com.github.tom91136.akatsuki:akatsuki-api:<commit>'
+//    apt 'com.github.tom91136.akatsuki:akatsuki-compiler:<commit>'
+
     compile 'com.jakewharton:butterknife:7.0.1'
 }
 

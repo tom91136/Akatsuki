@@ -1,5 +1,8 @@
 package com.sora.util.akatsuki;
 
+import static com.sora.util.akatsuki.SourceUtils.T;
+import static com.sora.util.akatsuki.SourceUtils.var;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -7,10 +10,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -26,24 +29,20 @@ import com.sora.util.akatsuki.ArgConcludingBuilder.VoidBuilder;
 import com.sora.util.akatsuki.ArgConfig.BuilderType.Check;
 import com.sora.util.akatsuki.ArgConfig.Order;
 import com.sora.util.akatsuki.ArgConfig.Sort;
-import com.sora.util.akatsuki.BundleCodeGenerator.Action;
 import com.sora.util.akatsuki.BundleContext.SimpleBundleContext;
-import com.sora.util.akatsuki.Internal.ActivityConcludingBuilder;
+import com.sora.util.akatsuki.BundleRetainerClassBuilder.Direction;
 import com.sora.util.akatsuki.Internal.ClassArgBuilder;
-import com.sora.util.akatsuki.Internal.FragmentConcludingBuilder;
-import com.sora.util.akatsuki.Internal.ServiceConcludingBuilder;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.Analysis;
 import com.sora.util.akatsuki.analyzers.CascadingTypeAnalyzer.InvocationType;
 import com.sora.util.akatsuki.analyzers.Element;
-import com.sora.util.akatsuki.models.BaseModel;
 import com.sora.util.akatsuki.models.ClassInfo;
 import com.sora.util.akatsuki.models.FieldModel;
 import com.sora.util.akatsuki.models.SourceClassModel;
+import com.sora.util.akatsuki.models.SourceMappingModel;
 import com.sora.util.akatsuki.models.SourceTreeModel;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -52,33 +51,39 @@ import com.squareup.javapoet.TypeSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 
 // Spec: every package has it's own Builder...
-public class ArgumentBuilderModel extends BaseModel
-		implements CodeGenerator<Map<String, TypeSpec>> {
+class ArgumentBuilderModel extends SourceMappingModel {
 
-	static final String BUILDER_CLASS_NAME = "Builders";
-	static final String BUILDER_CLASS_SUFFIX = "Builder";
+	public static final Function<String, String> BUILDER_NAME_FUNCTION = n -> n
+			+ Internal.BUILDER_CLASS_SUFFIX;
 
-	private final SourceTreeModel treeModel;
-	private final TypeAnalyzerResolver resolver;
-
-	private final Map<TypeMirror, DeclaredType> supportedMap;
+	private final Map<TypeMirror, DeclaredType> SUPPORTED_TYPES = new HashMap<>();
 	private final TypeName bundleTypeName;
+	private final ClassInfo info;
+	private final Optional<String> enclosingClass;
 
-	public ArgumentBuilderModel(ProcessorContext context, SourceTreeModel treeModel,
-			TypeAnalyzerResolver resolver) {
-		super(context);
-		this.treeModel = treeModel;
-		this.resolver = resolver;
-
+	protected ArgumentBuilderModel(ProcessorContext context, SourceClassModel classModel,
+			SourceTreeModel treeModel, Optional<String> enclosingClass) {
+		super(context, classModel, treeModel);
 		bundleTypeName = ClassName.get(AndroidTypes.Bundle.asMirror(context));
+		initializeSupportedTypes();
+		this.enclosingClass = enclosingClass;
+		ClassInfo info = classModel.asClassInfo().withNameTransform(BUILDER_NAME_FUNCTION);
+		this.info = enclosingClass.isPresent() ? info.withEnclosingClasses(enclosingClass.get())
+				: info;
+	}
 
-		supportedMap = new HashMap<>();
-		supportedMap.put(mirror("android.app.Fragment"), mirror(FragmentConcludingBuilder.class));
-		supportedMap.put(mirror("android.support.v4.app.Fragment"),
-				mirror(FragmentConcludingBuilder.class));
-		supportedMap.put(mirror("android.app.Activity"), mirror(ActivityConcludingBuilder.class));
-		supportedMap.put(mirror("android.app.Service"), mirror(ServiceConcludingBuilder.class));
-
+	// TODO this is bad (we cannot cache mirrors across rounds, they explode!)
+	private void initializeSupportedTypes() {
+		if (SUPPORTED_TYPES.isEmpty()) {
+			SUPPORTED_TYPES.put(mirror("android.app.Fragment"),
+					mirror(FragmentConcludingBuilder.class));
+			SUPPORTED_TYPES.put(mirror("android.support.v4.app.Fragment"),
+					mirror(FragmentConcludingBuilder.class));
+			SUPPORTED_TYPES.put(mirror("android.app.Activity"),
+					mirror(ActivityConcludingBuilder.class));
+			SUPPORTED_TYPES.put(mirror("android.app.Service"),
+					mirror(ServiceConcludingBuilder.class));
+		}
 	}
 
 	private DeclaredType mirror(Class<?> clazz) {
@@ -89,96 +94,53 @@ public class ArgumentBuilderModel extends BaseModel
 		return (DeclaredType) context.utils().of(className);
 	}
 
-	@Override
-	public Map<String, TypeSpec> createModel() {
-
-		Map<String, List<SourceClassModel>> packageMap = treeModel.classModels().stream()
-				.flatMap(m -> Stream.concat(m.subTypeModels().stream(), Stream.of(m))).distinct()
-				.collect(Collectors.groupingBy(SourceClassModel::fullyQualifiedPackageName));
-
-		HashMap<String, TypeSpec> specHashMap = new HashMap<>();
-
-		for (Entry<String, List<SourceClassModel>> entry : packageMap.entrySet()) {
-			TypeSpec.Builder buildersBuilder = TypeSpec.classBuilder(BUILDER_CLASS_NAME)
-					.addModifiers(Modifier.PUBLIC);
-
-			for (SourceClassModel model : entry.getValue()) {
-
-				Optional<SourceClassModel> superModel = model
-						.directSuperModelWithAnnotation(Arg.class);
-
-				if (!model.containsAnyAnnotation(Arg.class) && !superModel.isPresent())
-					continue;
-
-				// subclass if super is present
-				TypeSpec builderSpec = createBuilderForModel(model, superModel).build();
-				buildersBuilder.addType(builderSpec);
-				buildersBuilder.addMethod(createBuilderMethod(model, builderSpec, true).build());
-				buildersBuilder.addMethod(createBuilderMethod(model, builderSpec, false).build());
-			}
-			specHashMap.put(entry.getKey(), buildersBuilder.build());
-		}
-		return specHashMap;
+	public Optional<TypeSpec> build() {
+		Optional<SourceClassModel> superModel = classModel()
+				.directSuperModelWithAnnotation(Arg.class);
+		if (!classModel().containsAnyAnnotation(Arg.class) && !superModel.isPresent())
+			return Optional.empty();
+		return createBuilderForModel(classModel(), superModel).map(Builder::build);
 	}
 
-	private MethodSpec.Builder createBuilderMethod(SourceClassModel model, TypeSpec builderSpec,
-			boolean withBundle) {
-		MethodSpec.Builder builder = MethodSpec.methodBuilder(model.simpleName());
-		if (withBundle) {
-			builder.addCode("return new $L<>(bundle);", builderSpec.name)
-					.addParameter(bundleTypeName, "bundle");
-		} else {
-			builder.addCode("return new $L<>(new Bundle());", builderSpec.name);
-		}
-		ClassName className = ClassName.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME,
-				builderSpec.name);
-		builder.addModifiers(Modifier.PUBLIC, Modifier.STATIC).returns(ParameterizedTypeName.get(
-				className, ClassName.get(model.originatingElement()), TypeVariableName.get("?")));
-		return builder;
+	public ClassInfo classInfo() {
+		return info;
 	}
 
 	@Override
-	public void writeSourceToFile(Filer filer) throws IOException {
-		for (Entry<String, TypeSpec> entry : createModel().entrySet()) {
-			JavaFile.builder(entry.getKey(), entry.getValue()).build().writeTo(filer);
-		}
+	public void writeToFile(Filer filer) throws IOException {
+		if (enclosingClass.isPresent())
+			throw new RuntimeException(
+					"Enclosing class exists, please write the enclosing class instead of this inner class");
+		throw new UnsupportedOperationException("not implemented yet");
+
 	}
 
-	private String createBuilderName(SourceClassModel model) {
-		return model.simpleName() + BUILDER_CLASS_SUFFIX;
-	}
+	// private ClassName createBuilderClassName(String modelFqpn, String
+	// builderName) {
+	// return ClassName.get(modelFqpn, enclosingClassName, builderName);
+	// }
 
-	private ParameterizedTypeName createBuilderClassName(SourceClassModel model,
-			TypeName targetClassTypeName, TypeName builderClassTypeName) {
-
-		ClassName rawType = ClassName.get(model.fullyQualifiedPackageName(), BUILDER_CLASS_NAME,
-				createBuilderName(model));
-		return ParameterizedTypeName.get(rawType, targetClassTypeName, builderClassTypeName);
-	}
-
-	private ClassName createBuilderClassName(String modelFqpn, String builderName) {
-		return ClassName.get(modelFqpn, BUILDER_CLASS_NAME, builderName);
-	}
-
-	private TypeSpec.Builder createBuilderForModel(SourceClassModel model,
+	private Optional<TypeSpec.Builder> createBuilderForModel(SourceClassModel model,
 			Optional<SourceClassModel> superModel) {
 
 		// get the config, if none, copy the config from parent
 		ArgConfig config = model.annotation(ArgConfig.class).orElse(
 				superModel.map(sm -> sm.annotation(ArgConfig.class).orElse(null)).orElse(null));
 
-		// if still none, use the default
+		// if still none, use the global default
 		if (config == null) {
-			config = Utils.Defaults.of(ArgConfig.class);
+			config = context.config().argConfig();
 		}
+
+		if (!config.enabled())
+			return Optional.empty();
 
 		// our target type's class
 		ClassName targetTypeName = ClassName.get(model.originatingElement());
 
 		// generate builder's name
-		String builderName = createBuilderName(model);
 
-		final TypeSpec.Builder builderTypeBuilder = TypeSpec.classBuilder(builderName)
+		final TypeSpec.Builder builderTypeBuilder = TypeSpec.classBuilder(info.className)
 				.addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
 		SimpleBundleContext bundleContext = new SimpleBundleContext("", "bundle");
@@ -215,11 +177,28 @@ public class ArgumentBuilderModel extends BaseModel
 
 		}
 
-		builderTypeBuilder.addType(new BundleCodeGenerator(context, model, resolver,
-				Optional.of(modelPredicate), EnumSet.of(Action.RESTORE), Optional.empty(),
-				new ClassInfo(model.fullyQualifiedPackageName(),
-						Internal.generateRetainerClassName(builderName))).createModel().toBuilder()
-								.addModifiers(Modifier.STATIC).build());
+		BundleRetainerClassBuilder retainerClassBuilder = new BundleRetainerClassBuilder(context,
+				model, EnumSet.of(Direction.RESTORE), classInfo -> {
+
+					ClassInfo info = classInfo.withNameTransform(name -> Internal
+							.generateRetainerClassName(name + Internal.BUILDER_CLASS_SUFFIX));
+					if (enclosingClass.isPresent())
+						info = info.withEnclosingClasses(enclosingClass.get());
+
+					info = info.withEnclosingClasses(classInfo().className);
+					return info;
+				} , classInfo -> {
+					String className = classInfo.className;
+					ClassInfo info = classInfo.withNameTransform(name -> Internal
+							.generateRetainerClassName(name + Internal.BUILDER_CLASS_SUFFIX));
+					if (enclosingClass.isPresent())
+						info = info.withEnclosingClasses(enclosingClass.get());
+					info = info.withEnclosingClasses(className + Internal.BUILDER_CLASS_SUFFIX);
+					return info;
+				}).withFieldPredicate(modelPredicate);
+
+		builderTypeBuilder
+				.addType(retainerClassBuilder.build().addModifiers(Modifier.STATIC).build());
 
 		if (config.order() == Order.DSC)
 			Collections.reverse(fields);
@@ -227,9 +206,9 @@ public class ArgumentBuilderModel extends BaseModel
 		final Optional<DeclaredType> possibleConcluderType = context.utils()
 				.getClassFromAnnotationMethod(config::concludingBuilder, VoidBuilder.class);
 
-		DeclaredType concluderType = possibleConcluderType.orElse(supportedMap.keySet().stream()
+		DeclaredType concluderType = possibleConcluderType.orElse(SUPPORTED_TYPES.keySet().stream()
 				.filter(m -> context.utils().isAssignable(model.mirror(), m, true)).findFirst()
-				.map(supportedMap::get)
+				.map(SUPPORTED_TYPES::get)
 				.orElseThrow(() -> new RuntimeException(model.fullyQualifiedName()
 						+ " is not supported directly(detected as " + model.mirror() + ")."
 						+ " @Arg supports Fragment, Activity and Service natively,"
@@ -256,10 +235,10 @@ public class ArgumentBuilderModel extends BaseModel
 		}
 
 		generator.build(
-				new PartialModel(config, model.fullyQualifiedPackageName(), builderName,
+				new PartialModel(config, model.fullyQualifiedPackageName(), info.className,
 						targetTypeName, concluderType),
 				builderTypeBuilder, bundleContext, fields, superModel);
-		return builderTypeBuilder;
+		return Optional.of(builderTypeBuilder);
 	}
 
 	private static class PartialModel {
@@ -339,30 +318,28 @@ public class ArgumentBuilderModel extends BaseModel
 				SimpleBundleContext bundleContext, List<FieldModel> fields,
 				Optional<SourceClassModel> superClass) {
 
-			// TypeVariableName builderTypeName = TypeVariableName.get("BT",
-			// builderClassName);
-
-			String targetClassTypeVariable = "T";
 			// TODO what if out target class has some generic parameter of
 			// <A,B...>?
 
-			String builderTypeVariable = "BT";
-			TypeName builderClassName = ParameterizedTypeName.get(
-					createBuilderClassName(model.builderFqpn, model.builderSimpleName),
-					TypeVariableName.get(targetClassTypeVariable),
-					TypeVariableName.get(builderTypeVariable));
+			TypeName builderClassName = ParameterizedTypeName.get(info.toClassName(), T, var("BT"));
 
-			builderTypeBuilder.addTypeVariable(
-					TypeVariableName.get(targetClassTypeVariable, model.targetClassName));
+			builderTypeBuilder.addTypeVariable(TypeVariableName.get("T", model.targetClassName));
 
-			builderTypeBuilder
-					.addTypeVariable(TypeVariableName.get(builderTypeVariable, builderClassName));
+			builderTypeBuilder.addTypeVariable(TypeVariableName.get("BT", builderClassName));
 
 			if (superClass.isPresent()) {
 				// implement our parent
-				builderTypeBuilder.superclass(createBuilderClassName(superClass.get(),
-						TypeVariableName.get(targetClassTypeVariable),
-						TypeVariableName.get(builderTypeVariable)));
+
+				ClassInfo superClassInfo = superClass.get().asClassInfo();
+				if (enclosingClass.isPresent())
+					superClassInfo = superClassInfo.withEnclosingClasses(enclosingClass.get());
+
+				superClassInfo = superClassInfo.withNameTransform(BUILDER_NAME_FUNCTION);
+
+				ClassName superClassName = superClassInfo.toClassName();
+
+				builderTypeBuilder
+						.superclass(ParameterizedTypeName.get(superClassName, T, var("BT")));
 			} else {
 				// or inherit the class containing our build method
 				builderTypeBuilder.superclass(model.concludingBuilderTypeName());
@@ -401,15 +378,15 @@ public class ArgumentBuilderModel extends BaseModel
 					setterName = field.name();
 					// TODO allow and apply field name transform here
 				}
-				CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> analyzer = resolver
-						.resolve(element);
+				CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> analyzer = context
+						.resolver().resolve(element);
 				Analysis analysis = analyzer.transform(bundleContext, element, InvocationType.SAVE);
 
 				MethodSpec.Builder setterBuilder = MethodSpec.methodBuilder(setterName)
 						.addModifiers(Modifier.PUBLIC)
 						.addParameter(ClassName.get(field.type()), setterName)
 						.addCode(analysis.emit());
-				setBuilderReturnSpec(TypeVariableName.get(builderTypeVariable), setterBuilder);
+				setBuilderReturnSpec(var("BT"), setterBuilder);
 				builderTypeBuilder.addMethod(setterBuilder.build());
 
 				if (appendCheck && !arg.optional()) {
@@ -464,8 +441,8 @@ public class ArgumentBuilderModel extends BaseModel
 					// TODO allow and apply field name transform here
 				}
 
-				CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> analyzer = resolver
-						.resolve(element);
+				CascadingTypeAnalyzer<?, ? extends TypeMirror, ? extends Analysis> analyzer = context
+						.resolver().resolve(element);
 				Analysis analysis = analyzer.transform(bundleContext, element, InvocationType.SAVE);
 
 				MethodSpec.Builder setterBuilder = MethodSpec.methodBuilder(setterName)

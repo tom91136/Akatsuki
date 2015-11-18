@@ -8,21 +8,21 @@ import java.lang.annotation.Target;
 import com.sora.util.akatsuki.Retained.RestorePolicy;
 
 /**
- * A compile time configuration annotation for Akatsuki, this can be placed on
- * any element
+ * Compile time configuration for {@link Retained}, to be used on classes with
+ * field annotated with {@code Retained}
  */
 @Target({ ElementType.TYPE })
 @Retention(RetentionPolicy.CLASS)
 public @interface RetainConfig {
 
 	/**
-	 * Global {@link RestorePolicy} setting, see
+	 * Default {@link RestorePolicy} setting for the class, see
 	 * {@link Retained#restorePolicy()}
 	 */
 	RestorePolicy restorePolicy() default RestorePolicy.DEFAULT;
 
 	/**
-	 * Whether the annotated class should be processed; useful for debugging
+	 * Whether the class should be processed; useful for debugging
 	 */
 	boolean enabled() default true;
 

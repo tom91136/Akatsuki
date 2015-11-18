@@ -21,7 +21,8 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor8;
 
 import com.sora.util.akatsuki.AkatsukiConfig.OptFlags;
-import com.sora.util.akatsuki.models.BaseModel;
+import com.sora.util.akatsuki.models.ClassInfo;
+import com.sora.util.akatsuki.models.SourceCollectingModel;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -35,21 +36,16 @@ import com.squareup.javapoet.TypeSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 
-public class RetainerMappingModel extends BaseModel implements CodeGenerator<TypeSpec> {
+public class RetainerLUTModel extends SourceCollectingModel<RetainedStateModel> {
 
-	private final List<RetainedStateModel> models;
 	private final Collection<? extends Element> rootElements;
-	private final Configuration configuration;
 
-	protected RetainerMappingModel(ProcessorContext context, List<RetainedStateModel> models,
-			Collection<? extends Element> rootElements, Configuration configuration) {
-		super(context);
-		this.models = models;
+	protected RetainerLUTModel(ProcessorContext context, List<RetainedStateModel> models,
+			Collection<? extends Element> rootElements) {
+		super(context, models);
 		this.rootElements = rootElements;
-		this.configuration = configuration;
 	}
 
-	@Override
 	public TypeSpec createModel() {
 		final Builder typeBuilder = TypeSpec.classBuilder(Akatsuki.RETAINER_CACHE_NAME)
 				.addModifiers(Modifier.PUBLIC).addSuperinterface(RetainerCache.class);
@@ -81,12 +77,12 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 			}
 		};
 
-		Map<String, RetainedStateModel> modelMap = models.stream().collect(
+		Map<String, RetainedStateModel> modelMap = mappingModels().stream().collect(
 				Collectors.toMap(m -> m.classModel().fullyQualifiedName(), Function.identity()));
 
 		modelToMapConsumer.accept(modelMap);
 
-		if (configuration.optFlags().contains(OptFlags.VECTORIZE_INHERITANCE)) {
+		if (context.config().optFlags().contains(OptFlags.VECTORIZE_INHERITANCE)) {
 			// find all implementing class (for inheritance)
 			for (Element element : rootElements) {
 				modelToMapConsumer.accept(findAllTypes(element, modelMap));
@@ -110,7 +106,12 @@ public class RetainerMappingModel extends BaseModel implements CodeGenerator<Typ
 	}
 
 	@Override
-	public void writeSourceToFile(Filer filer) throws IOException {
+	public ClassInfo classInfo() {
+		return new ClassInfo(Akatsuki.RETAINER_CACHE_PACKAGE, Akatsuki.RETAINER_CACHE_NAME);
+	}
+
+	@Override
+	public void writeToFile(Filer filer) throws IOException {
 		JavaFile.builder(Akatsuki.RETAINER_CACHE_PACKAGE, createModel()).build().writeTo(filer);
 	}
 

@@ -90,27 +90,17 @@ For documentation and additional information see [the wiki](https://github.com/t
 ## Download
 **The compiler is written in Java 8 so make sure you have JDK8 or higher installed(use `java -version` to check)**
 
-**For the time being, there seems to be several bugs with version `0.1.0` due to the addition of `@Arg`. For stability, you may want to use `0.0.3` for now while I work on `0.1.1`**
-
-Things that are broken in `0.1.0`:
-
- * Builder does not work on inherited fragments
- * Builder looses type information after certain chained calls
- * `@Arg` doesn't seems to survive very well on it's own, need a `@Retained` field otherwise something breaks
- 
-Some of them are showstoppers which I apologise for, I was rushing the 0.1.0 release because it's taking forever.
-
 
 Gradle dependencies:
 ```groovy
 dependencies {
-	compile 'com.sora.util.akatsuki:akatsuki-api:0.1.0'
-	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.1.0'
+	compile 'com.sora.util.akatsuki:akatsuki-api:0.2.0'
+	apt 'com.sora.util.akatsuki:akatsuki-compiler:0.2.0'
 }
 ```
 Optional parceler support:
 ```groovy
-compile 'com.sora.util.akatsuki:akatsuki-parceler:0.1.0@aar'
+compile 'com.sora.util.akatsuki:akatsuki-parceler:0.2.0@aar'
 ```
 
 
@@ -125,7 +115,7 @@ compileOptions {
 // exception: do keep 1_8 if you happen to be using retrolambda
 ```
 
-##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.0.3/)
+##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.2.0/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
 
 ## Proguard
@@ -139,6 +129,10 @@ Please use the following rules if you have proguard enabled in your build script
     @com.sora.util.akatsuki.* <fields>;
 }
 ```
+
+## Special thanks
+
+Special thanks to [ersin-ertan](https://github.com/ersin-ertan) for testing the library and reporting bugs 
 
 ## License
 

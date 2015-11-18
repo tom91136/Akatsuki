@@ -20,16 +20,13 @@ public class EnclosingInstanceValidationIntegrationTest extends IntegrationTestB
 	public static class EnclosingInstanceValidIntegrationTest extends IntegrationTestBase {
 
 		@DataPoint public static final TestSource STATIC_NESTED_CLASS = new TestSource(TEST_PACKAGE,
-				TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(
-						new TestSource(TEST_CLASS + "Inner1", Modifier.PUBLIC, Modifier.STATIC)
-								.appendFields(BAR));
+				TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(true,
+						new TestSource(TEST_CLASS + "Inner1", Modifier.PUBLIC).appendFields(BAR));
 
 		@DataPoint public static final TestSource STATIC_MULTIPLE_NESTED_CLASS = new TestSource(
-				TEST_PACKAGE, TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(
-						new TestSource(TEST_CLASS + "Inner1", Modifier.PUBLIC, Modifier.STATIC)
-								.appendFields(BAR),
-						new TestSource(TEST_CLASS + "Inner2", Modifier.PUBLIC, Modifier.STATIC)
-								.appendFields(BAR));
+				TEST_PACKAGE, TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(true,
+						new TestSource(TEST_CLASS + "Inner1", Modifier.PUBLIC).appendFields(BAR),
+						new TestSource(TEST_CLASS + "Inner2", Modifier.PUBLIC).appendFields(BAR));
 
 		@DataPoint public static final TestSource PACKAGE_PRIVATE_CLASS = new TestSource(
 				TEST_PACKAGE, TEST_CLASS).appendFields(FOO);
@@ -44,7 +41,7 @@ public class EnclosingInstanceValidationIntegrationTest extends IntegrationTestB
 	public static class EnclosingInstanceInvalidIntegrationTest extends IntegrationTestBase {
 
 		@DataPoint public static final TestSource INSTANCE_NESTED_CLASS = new TestSource(
-				TEST_PACKAGE, TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(
+				TEST_PACKAGE, TEST_CLASS, Modifier.PUBLIC).appendFields(FOO).innerClasses(false,
 						new TestSource(TEST_CLASS + "Inner1", Modifier.PUBLIC).appendFields(BAR));
 
 		@DataPoint public static final TestSource PRIVATE_CLASS = new TestSource(TEST_PACKAGE,

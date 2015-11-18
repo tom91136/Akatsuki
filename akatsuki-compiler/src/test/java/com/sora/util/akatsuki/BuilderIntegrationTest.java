@@ -8,10 +8,12 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import javax.lang.model.element.Modifier;
 
 import org.junit.Test;
 
@@ -24,9 +26,6 @@ import com.sora.util.akatsuki.BuilderIntegrationTest.A.A$B;
 import com.sora.util.akatsuki.BuilderTestEnvironment.SingleBuilderTester;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.Accessor;
 import com.sora.util.akatsuki.RetainedStateTestEnvironment.BundleRetainerTester;
-
-import javax.lang.model.element.Modifier;
-import javax.management.RuntimeMBeanException;
 
 public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 
@@ -55,7 +54,7 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 		BuilderTestEnvironment environment = testSingleClass(TEST_PACKAGE_NAME, Fragment.class,
 				testField());
 		Class<?> builderClass = environment
-				.findClass(TEST_PACKAGE_NAME + "." + ArgumentBuilderModel.BUILDER_CLASS_NAME);
+				.findClass(TEST_PACKAGE_NAME + "." + Internal.BUILDER_CLASS_NAME);
 		assertNotNull(builderClass);
 	}
 
@@ -76,32 +75,25 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 		environment.assertAllBuildersGeneratedAndValid();
 	}
 
-	public static class A{
-		public static class A$B{
+	public static class A {
+		public static class A$B {
 
 		}
 	}
 
 	@Test
-	public void testStaticInnerClassHasCorrectStructure() {
+	public void testStaticInnerClassHasCorrectStructure() throws ClassNotFoundException {
 		TestSource topLevel = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
 		TestSource last = topLevel;
 		for (int i = 0; i < 5; i++) {
-			TestSource inner = createTestSource(null, Fragment.class, testField())
-					.appendTransformation((b, s) -> b.addModifiers(Modifier.STATIC));
-			last.innerClasses(inner);
+			TestSource inner = createTestSource(null, Fragment.class, testField());
+			last.innerClasses(true, inner);
 			last = inner;
 		}
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, topLevel);
 		environment.assertAllBuildersGeneratedAndValid();
-		System.out.println("cc->" + A$B.class.getName());
 
-		try {
-			Class.forName(A$B.class.getName());
-		} catch (ClassNotFoundException e) {
-			//e.printStackTrace();
-			System.out.println("boom1");
-		}
+		Class.forName(A$B.class.getName());
 	}
 
 	@Test(expected = AssertionError.class)
@@ -133,11 +125,37 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	@Test
 	public void testBuilderInheritanceWithGap() {
 		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
-		TestSource gap = createTestSource(TEST_PACKAGE_NAME, null,
-				new TestField(String.class, "anotherField1")).superClass(parent);
+
+		TestSource gap = createTestSource(TEST_PACKAGE_NAME, null, new TestField(String.class, "a"))
+				.superClass(parent);
+
 		TestSource child = createTestSource(TEST_PACKAGE_NAME, null,
-				new ArgTestField(String.class, "anotherField2")).superClass(gap);
+				new ArgTestField(String.class, "b")).superClass(gap);
+
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, gap, child);
+		for (TestSource source : Arrays.asList(parent, child)) {
+			new SingleBuilderTester(environment, source).initializeAndValidate();
+		}
+	}
+
+	@Test
+	public void testBuilderInheritanceWithMultipleGap() {
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+
+		TestSource gap = createTestSource(TEST_PACKAGE_NAME, null, new TestField(String.class, "a"))
+				.superClass(parent);
+
+		TestSource gap2 = createTestSource(TEST_PACKAGE_NAME, null,
+				new TestField(String.class, "b")).superClass(gap);
+
+		TestSource gap3 = createTestSource(TEST_PACKAGE_NAME, null,
+				new TestField(String.class, "c")).superClass(gap2);
+
+		TestSource child = createTestSource(TEST_PACKAGE_NAME, null,
+				new ArgTestField(String.class, "d")).superClass(gap3);
+
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, gap, gap2,
+				gap3, child);
 		for (TestSource source : Arrays.asList(parent, child)) {
 			new SingleBuilderTester(environment, source).initializeAndValidate();
 		}
@@ -161,11 +179,58 @@ public class BuilderIntegrationTest extends BuilderIntegrationTestBase {
 	}
 
 	@Test
-	public void testBuilderCreatedForAllChildren() {
+	public void testBuilderCreatedForInnerChildrenDifferentPackage() {
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		TestSource source = createTestSource(null, null).superClass(parent);
+		TestSource enclosingClass = new TestSource(TEST_PACKAGE_NAMES[0], generateClassName(),
+				Modifier.PUBLIC).innerClasses(true,source);
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent,
+				enclosingClass);
+		new SingleBuilderTester(environment, source);
+	}
+
+	@Test
+	public void testBuilderCreatedForAllInnerChildrenDifferentPackage() {
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+
+		Map<String, TestSource> childTestClassMap = Arrays.stream(TEST_PACKAGE_NAMES)
+				.collect(Collectors.toMap(Function.identity(),
+						n -> createTestSource(null, null).superClass(parent)));
+
+		TestSource[] enclosingClasses = childTestClassMap.entrySet().stream()
+				.map(entry -> new TestSource(entry.getKey(), generateClassName(), Modifier.PUBLIC)
+						.innerClasses(true,entry.getValue()))
+				.toArray(TestSource[]::new);
+
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent,
+				enclosingClasses);
+
+		childTestClassMap.values()
+				.forEach(ts -> new SingleBuilderTester(environment, ts).initializeAndValidate());
+	}
+
+	@Test
+	public void testBuilderCreatedForAllChildrenDifferentPackage() {
 		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
 		TestSource[] children = Arrays.stream(TEST_PACKAGE_NAMES)
 				.map(n -> createTestSource(n, null).superClass(parent)).toArray(TestSource[]::new);
 		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent, children);
+		environment.assertAllBuildersGeneratedAndValid();
+	}
+
+	@Test
+	public void testBuilderCreatedForSingleChildrenSamePackage() {
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent,
+				createTestSource(TEST_PACKAGE_NAME, null).superClass(parent));
+		environment.assertAllBuildersGeneratedAndValid();
+	}
+
+	@Test
+	public void testBuilderCreatedForSingleChildrenDifferentPackage() {
+		TestSource parent = createTestSource(TEST_PACKAGE_NAME, Fragment.class, testField());
+		BuilderTestEnvironment environment = new BuilderTestEnvironment(this, parent,
+				createTestSource(TEST_PACKAGE_NAMES[0], null).superClass(parent));
 		environment.assertAllBuildersGeneratedAndValid();
 	}
 

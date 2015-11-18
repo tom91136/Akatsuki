@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,7 @@ import com.sora.util.akatsuki.AkatsukiConfig.OptFlags;
 import com.sora.util.akatsuki.Utils.Defaults;
 import com.sora.util.akatsuki.Utils.Values;
 import com.sora.util.akatsuki.models.SourceTreeModel;
+import com.sora.util.akatsuki.models.SourceTreeModel.Arrangement;
 
 @AutoService(Processor.class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -109,13 +111,14 @@ public class AkatsukiProcessor extends AbstractProcessor {
 			context.roundFinished();
 			return true;
 		}
-		if (model.classModels().isEmpty()) {
+		if (model.classModels(Arrangement.HEAD).isEmpty()) {
 			Log.verbose(context,
 					"Round has no elements, classes possibly originated from another annotation processor");
 			context.roundFinished();
 			return false;
 		}
 		Log.verbose(context, "Source tree built");
+		Log.verbose(context, "Tree = " + model.toString());
 
 		Log.verbose(context, "Resolving @TransformationTemplate...");
 		List<TransformationTemplate> templates = findTransformationTemplates(roundEnv);
@@ -128,25 +131,33 @@ public class AkatsukiProcessor extends AbstractProcessor {
 				declaredConverters, model, context);
 		Log.verbose(context, "TypeAnalyzerResolver created...");
 
+		context.setBundleTypeResolverForRound(resolver);
 
 		// bundle retainer first
 		Log.verbose(context, "Generating classes for @Retained...");
-		List<RetainedStateModel> retainerModels = model.forEachClassSerial((c, t) -> {
-			RetainedStateModel stateModel = new RetainedStateModel(context, c, t, resolver);
-			stateModel.writeSourceToFile(processingEnv.getFiler());
-			return stateModel;
-		} , (e, m) -> {
-			context.messager().printMessage(Kind.ERROR,
-					"An error occurred while writing file: " + m.asClassInfo());
-			throw new RuntimeException(e);
-		});
 
-		if (context.config().optFlags().contains(OptFlags.CLASS_LUT) && retainerModels != null) {
-			Log.verbose(context, "Generating additional classes for OptFlags.CLASS_LUT...");
+		List<RetainedStateModel> retainedStateModels = model.classModels(Arrangement.HEAD).stream()
+				.filter(m -> m.containsAnyAnnotation(Retained.class))
+				.map(cm -> new RetainedStateModel(context, cm, model)).collect(Collectors.toList());
+		Log.verbose(context, "Generated " + retainedStateModels.size() + ":");
+		retainedStateModels.forEach(m -> Log.verbose(context, "\t" + m.classInfo().className));
 
+		for (RetainedStateModel stateModel : retainedStateModels) {
 			try {
-				new RetainerMappingModel(context, retainerModels, roundEnv.getRootElements(),
-						context.config()).writeSourceToFile(processingEnv.getFiler());
+				stateModel.writeToFile(processingEnv.getFiler());
+			} catch (IOException e) {
+				context.messager().printMessage(Kind.ERROR,
+						"An error occurred while writing file:" + stateModel.classInfo());
+				throw new RuntimeException(e);
+			}
+		}
+
+		if (context.config().optFlags().contains(OptFlags.CLASS_LUT)
+				&& !retainedStateModels.isEmpty()) {
+			Log.verbose(context, "Generating additional classes for OptFlags.CLASS_LUT...");
+			try {
+				new RetainerLUTModel(context, retainedStateModels, roundEnv.getRootElements())
+						.writeToFile(processingEnv.getFiler());
 			} catch (IOException e) {
 				context.messager().printMessage(Kind.ERROR,
 						"An error occurred while writing cache class, "
@@ -156,9 +167,21 @@ public class AkatsukiProcessor extends AbstractProcessor {
 		}
 
 		Log.verbose(context, "Generating classes for @Arg...");
+		List<ArgumentBuilderModel> argumentBuilderModels = model.classModels(Arrangement.FLATTENED)
+				.stream()
+//				.filter(m -> m.containsAnyAnnotation(Arg.class) || m.directSuperModel()
+//						.map(mm -> mm.containsAnyAnnotation(Arg.class)).orElse(false))
+				.map(cm -> new ArgumentBuilderModel(context, cm, model,
+						Optional.of(Internal.BUILDER_CLASS_NAME)))
+				.collect(Collectors.toList());
+		Log.verbose(context, "Generated " + argumentBuilderModels.size() + ":");
+		argumentBuilderModels.forEach(m -> Log.verbose(context, "\t" + m.classInfo().className));
+
 		try {
-			new ArgumentBuilderModel(context, model, resolver)
-					.writeSourceToFile(processingEnv.getFiler());
+			ArgumentBuildersModel argumentBuildersModel = new ArgumentBuildersModel(context,
+					argumentBuilderModels);
+			argumentBuildersModel.writeToFile(processingEnv.getFiler());
+
 		} catch (IOException e) {
 			context.messager().printMessage(Kind.ERROR,
 					"An error occurred while writing argument builder");

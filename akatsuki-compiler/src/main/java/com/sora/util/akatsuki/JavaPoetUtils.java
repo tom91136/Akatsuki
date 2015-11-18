@@ -3,7 +3,7 @@ package com.sora.util.akatsuki;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JavaPoetUtils {
+ class JavaPoetUtils {
 
 	private static final String REPLACEMENT = Matcher.quoteReplacement("$$");
 	private static final Pattern PATTERN = Pattern.compile("\\$");

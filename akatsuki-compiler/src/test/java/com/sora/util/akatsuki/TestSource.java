@@ -20,7 +20,7 @@ import com.squareup.javapoet.TypeSpec.Builder;
 public final class TestSource {
 
 	public final String packageName;
-	public final String className;
+	private final String className;
 	public final List<FieldSpec> specs = new ArrayList<>();
 	public final List<TestSource> innerClasses = new ArrayList<>();
 	public final Modifier[] modifiers;
@@ -67,16 +67,21 @@ public final class TestSource {
 				Arrays.stream(fields).map(TestField::createFieldSpec).toArray(FieldSpec[]::new));
 	}
 
-	public TestSource innerClasses(TestSource... sources) {
-		return this.innerClasses(Arrays.asList(sources));
+	public TestSource innerClasses(boolean setStatic, TestSource... sources) {
+		return this.innerClasses(setStatic, Arrays.asList(sources));
 	}
 
-	public TestSource innerClasses(Collection<TestSource> sources) {
+	public TestSource innerClasses(boolean setStatic, Collection<TestSource> sources) {
 		for (TestSource source : sources) {
 			if (source.packageName != null)
 				throw new IllegalArgumentException("inner class " + source
 						+ " contains a package name, it should be a top level class");
 			source.enclosingClass = this;
+
+			if (setStatic)
+				source.appendTransformation(
+						(builder, testSource) -> builder.addModifiers(Modifier.STATIC));
+
 		}
 		this.innerClasses.addAll(sources);
 		return this;
@@ -126,7 +131,8 @@ public final class TestSource {
 
 	private void checkInner() {
 		if (packageName == null)
-			throw new IllegalArgumentException("cannot be called on an inner class");
+			throw new IllegalArgumentException(
+					"cannot be called on an inner class : " + toString());
 	}
 
 	public String fqcn() {
@@ -134,10 +140,26 @@ public final class TestSource {
 				: (packageName + "" + "." + className);
 	}
 
+	public String fqpn() {
+		return enclosingClass != null ? enclosingClass.fqpn() : packageName;
+	}
+
 	@Override
 	public String toString() {
 		return "TestSource{" + "packageName='" + packageName + '\'' + ", className='" + className
 				+ '\'' + ", specs=" + specs + ", innerClasses=" + innerClasses + ", modifiers="
 				+ Arrays.toString(modifiers) + ", superClass=" + superClass + '}';
+	}
+
+	public String className() {
+		return enclosingClass != null ? (enclosingClass.className + "$" + className) : className;
+	}
+
+	public String simpleName(){
+		return className;
+	}
+
+	public boolean toplevel(){
+		return packageName != null;
 	}
 }

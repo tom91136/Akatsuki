@@ -36,7 +36,8 @@ public final class Log {
 		// if we don't have config yet, print everything
 		LoggingLevel loggingLevel = context.config() != null ? context.config().loggingLevel()
 				: null;
-		if (loggingLevel == null || level == loggingLevel) {
+
+		if (loggingLevel == null || level.ordinal() <= loggingLevel.ordinal()) {
 			String msg = level.name() + ":" + message;
 			if (element == null) {
 				context.messager().printMessage(Kind.OTHER, msg);

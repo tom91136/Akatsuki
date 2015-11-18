@@ -16,13 +16,13 @@ import java.lang.annotation.Target;
 public @interface AkatsukiConfig {
 
 	/**
-	 * Logging levels
+	 * Logging levels; highest level contains all other levels
 	 */
 	enum LoggingLevel {
 
 		/**
 		 * Print debug information at compile time such as class scanning
-		 * progress(this would large output so use with caution)
+		 * progress(this would generate large outputs so use with caution)
 		 **/
 		DEBUG,
 

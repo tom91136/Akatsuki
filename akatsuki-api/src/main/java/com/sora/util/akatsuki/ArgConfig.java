@@ -7,7 +7,11 @@ import java.lang.annotation.Target;
 
 import com.sora.util.akatsuki.ArgConcludingBuilder.VoidBuilder;
 
-@Target({ ElementType.TYPE})
+/**
+ * Compile time configuration for {@link Arg}, to be used on classes with field
+ * annotated with {@code Arg}
+ */
+@Target({ ElementType.TYPE })
 @Retention(RetentionPolicy.CLASS)
 public @interface ArgConfig {
 
@@ -22,6 +26,7 @@ public @interface ArgConfig {
 		 * forbid you from omitting mandatory args
 		 *
 		 */
+		// TODO for next release
 		// FLUENT(ReturnType.SUBCLASSED,
 		// Check.NONE), /**
 		// * Builder returns itself for chaining, no
@@ -108,6 +113,27 @@ public @interface ArgConfig {
 	 */
 	// BuilderNamingRules[]namingRules() default {};
 
+	// TODO next version, no implementation yet
+	// enum FieldNameConvention {
+	// /**
+	// * Fields prefixed with m for member (ex: mFoo, mBar, mFooBar)
+	// */
+	// ANDROID,
+	//
+	// /**
+	// * Fields with no prefix (ex: foo, bar, fooBar)
+	// */
+	// SIMPLE
+	// }
+	//
+	// /**
+	// * Defines how field names are transformed when the builder is generated
+	// */
+	// FieldNameConvention convention() default FieldNameConvention.SIMPLE;
+
+	/**
+	 * Defines how builder method name are sorted
+	 */
 	enum Sort {
 		CODE, INDEX, LEXICOGRAPHICAL, RANDOM
 	}
@@ -132,7 +158,7 @@ public @interface ArgConfig {
 	Class<? extends ArgConcludingBuilder>concludingBuilder() default VoidBuilder.class;
 
 	/**
-	 * Whether the annotated class should be processed; useful for debugging
+	 * Whether the class should be processed; useful for debugging
 	 */
 	boolean enabled() default true;
 

@@ -2,9 +2,7 @@ package com.sora.util.akatsuki;
 
 import com.google.common.base.MoreObjects;
 
-/**
- * Project: Akatsuki Created by tom91136 on 15/07/2015.
- */
+
 public interface BundleContext {
 
 	String sourceObjectName();

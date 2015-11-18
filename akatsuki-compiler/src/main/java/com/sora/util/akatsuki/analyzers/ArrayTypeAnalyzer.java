@@ -59,7 +59,6 @@ public class ArrayTypeAnalyzer
 				.findFirst();
 
 		if (found.isPresent()) {
-			System.out.println(component);
 			return cascade(new ObjectTypeAnalyzer(this).suffix("Array")
 					.target(types().getArrayType(found.get().asMirror(this))), context, component);
 		} else {

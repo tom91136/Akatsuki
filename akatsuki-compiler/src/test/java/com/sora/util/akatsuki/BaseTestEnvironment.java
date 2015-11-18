@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import javax.tools.JavaFileObject;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.sora.util.akatsuki.CompilerUtils.Result;
@@ -21,10 +22,14 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 		this.sources = Collections.unmodifiableList(sources);
 		try {
 
+			// find all top level classes
+			JavaFileObject[] javaFileObjects = sources.stream().filter(TestSource::toplevel)
+					.map(TestSource::generateFileObject).toArray(JavaFileObject[]::new);
+
+
 			result = CompilerUtils.compile(Thread.currentThread().getContextClassLoader(),
 					base.processors(), ImmutableList.of("-Aakatsuki.loggingLevel=VERBOSE"),
-					sources.stream().map(TestSource::generateFileObject)
-							.toArray(JavaFileObject[]::new));
+					javaFileObjects);
 			if (result.compilationException != null)
 				throw result.compilationException;
 		} catch (Exception e) {
@@ -100,7 +105,8 @@ public abstract class BaseTestEnvironment implements TestEnvironment {
 			}
 			return builder.toString();
 		} catch (Exception e) {
-			throw new RuntimeException("Unable to print report for sources:" + sources, e);
+			return "[Unable to print report for sources:" + sources + " due to exception: "
+					+ Throwables.getStackTraceAsString(e) + "]";
 		}
 	}
 

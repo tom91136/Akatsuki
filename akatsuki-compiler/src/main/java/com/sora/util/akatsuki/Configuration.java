@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 
 import com.sora.util.akatsuki.AkatsukiConfig.Flags;
@@ -60,10 +61,20 @@ public class Configuration {
 		return config.allowTransient();
 	}
 
-	public boolean testField(FieldModel model) {
-		Set<Modifier> modifiers = model.element.getModifiers();
-		return !(!allowTransient() && modifiers.contains(Modifier.TRANSIENT)
-				|| !allowVolatile() && modifiers.contains(Modifier.VOLATILE));
+	public boolean fieldAllowed(Element element) {
+		Set<Modifier> modifiers = element.getModifiers();
+
+		if (!allowTransient() && modifiers.contains(Modifier.TRANSIENT))
+			return false;
+
+		if (!allowVolatile() && modifiers.contains(Modifier.VOLATILE))
+			return false;
+
+		return true;
+	}
+
+	public boolean fieldAllowed(FieldModel model) {
+		return fieldAllowed(model.element);
 	}
 
 	public EnumSet<OptFlags> optFlags() {
@@ -74,10 +85,20 @@ public class Configuration {
 		return flags;
 	}
 
+	/**
+	 * Returns the global default for {@link ArgConfig}
+	 * 
+	 * @return a {@link ArgConfig} instance, never null
+	 */
 	public ArgConfig argConfig() {
 		return config.argConfig();
 	}
 
+	/**
+	 * Returns the global default for {@link RetainConfig}
+	 * 
+	 * @return a {@link RetainConfig} instance, never null
+	 */
 	public RetainConfig retainConfig() {
 		return config.retainConfig();
 	}

@@ -58,8 +58,10 @@ public abstract class RetainedStateIntegrationTestBase extends IntegrationTestBa
 		return new RetainedStateTestEnvironment(this, subclass, superClass);
 	}
 
-	// generates a class for each field, each class extends the previous class;
-	// left most spec argument will be the top most class
+	/**
+	 * Generates a class for each field, each class extends the previous class;
+	 * left most spec argument will be the top most class
+	 */
 	protected RetainedStateTestEnvironment testInheritance(boolean cache, TestField first,
 			TestField... rest) {
 		final List<TestField> fields = Lists.asList(first, rest);
@@ -81,8 +83,10 @@ public abstract class RetainedStateIntegrationTestBase extends IntegrationTestBa
 				sources);
 		environment.tester().invokeSaveAndRestore();
 		environment.tester()
-				.testSaveRestoreInvocation(ALWAYS, BundleRetainerTester.CLASS_EQ, fields.stream()
-						                                                                  .filter(tf -> tf instanceof RetainedTestField).map(tf -> (RetainedTestField) tf).collect(Collectors.toList()), f -> 1);
+				.testSaveRestoreInvocation(ALWAYS, BundleRetainerTester.CLASS_EQ,
+						fields.stream().filter(tf -> tf instanceof RetainedTestField)
+								.map(tf -> (RetainedTestField) tf).collect(Collectors.toList()),
+						f -> 1);
 		return environment;
 	}
 

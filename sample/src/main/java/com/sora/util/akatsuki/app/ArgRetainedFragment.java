@@ -8,7 +8,6 @@ import com.sora.util.akatsuki.Arg;
 import com.sora.util.akatsuki.ArgConfig;
 import com.sora.util.akatsuki.ArgConfig.BuilderType;
 
-@ArgConfig(type = BuilderType.CHECKED)
 public class ArgRetainedFragment extends Fragment {
 
 	@Arg int a;
@@ -30,5 +29,14 @@ public class ArgRetainedFragment extends Fragment {
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
 		Akatsuki.save(this, outState);
+	}
+
+
+	public static class Arg2 extends Fragment{
+		@Arg int a;
+
+		public static class Arg3 extends Fragment{
+			@Arg int x;
+		}
 	}
 }

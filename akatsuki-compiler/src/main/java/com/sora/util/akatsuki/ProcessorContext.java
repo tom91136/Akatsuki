@@ -12,7 +12,7 @@ public class ProcessorContext {
 	private final Elements elements;
 	private final ProcessorUtils utils;
 	private Configuration config;
-	private boolean round;
+	private TypeAnalyzerResolver bundleTypeResolver;
 
 	public ProcessorContext(ProcessingEnvironment environment) {
 		this.environment = environment;
@@ -46,25 +46,40 @@ public class ProcessorContext {
 	}
 
 	void setConfigForRound(Configuration config) {
-
-		if (this.config != null)
-			throw new IllegalStateException("Configuration cannot be changed once set!");
+		checkState(this.config, "config");
 		this.config = config;
 	}
 
-	public void roundStarted(){
-		this.round = true;
-		this.config = null;
+	public void setBundleTypeResolverForRound(TypeAnalyzerResolver bundleTypeResolver) {
+		checkState(this.bundleTypeResolver, "resolver");
+		this.bundleTypeResolver = bundleTypeResolver;
 	}
 
-	public void roundFinished(){
-		this.round = false;
+	private void checkState(Object object, String name) {
+		if (object != null)
+			throw new IllegalStateException(name + " cannot be changed for round once set!");
+	}
+
+	public void roundStarted() {
+		clearRoundState();
+	}
+
+	public void roundFinished() {
+		clearRoundState();
 		Log.verbose(this, "Round finished");
+	}
+
+	private void clearRoundState() {
 		this.config = null;
+		this.bundleTypeResolver = null;
 	}
 
 	public Configuration config() {
 		return config;
+	}
+
+	public TypeAnalyzerResolver resolver() {
+		return bundleTypeResolver;
 	}
 
 }

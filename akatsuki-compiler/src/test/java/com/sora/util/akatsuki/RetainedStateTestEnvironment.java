@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,7 +44,8 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 		super(base, sources);
 	}
 
-	public RetainedStateTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
+	public RetainedStateTestEnvironment(IntegrationTestBase base, TestSource source,
+			TestSource... required) {
 		super(base, source, required);
 	}
 
@@ -52,7 +54,9 @@ public class RetainedStateTestEnvironment extends BaseTestEnvironment {
 		final Class<?> testClass;
 		// the first class is our test class
 		final String fqcn = sources.get(0).fqcn();
-		System.out.println("Loading class " + fqcn + " as test class");
+		System.out.println("Test environment contains:"
+				+ Arrays.toString(sources.stream().map(s -> s.className()).toArray()));
+		System.out.println("Loading " + fqcn + " as test class...");
 		testClass = classLoader().loadClass(fqcn);
 
 		RetainerCache retainerCache = null;

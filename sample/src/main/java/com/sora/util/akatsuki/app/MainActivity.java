@@ -1,17 +1,11 @@
 package com.sora.util.akatsuki.app;
 
-import akatsuki.util.sora.com.akatsuki.R;
-
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.widget.EditText;
-
-import butterknife.Bind;
-import butterknife.ButterKnife;
-import butterknife.OnClick;
 
 import com.sora.util.akatsuki.Akatsuki;
 import com.sora.util.akatsuki.AkatsukiConfig;
@@ -20,7 +14,13 @@ import com.sora.util.akatsuki.IncludeClasses;
 import com.sora.util.akatsuki.RetainConfig;
 import com.sora.util.akatsuki.Retained;
 import com.sora.util.akatsuki.Retained.RestorePolicy;
+import com.sora.util.akatsuki.app.ArgRetainedFragment.Arg2.Arg3;
 import com.sora.util.akatsuki.parceler.ParcelerSupport;
+
+import akatsuki.util.sora.com.akatsuki.R;
+import butterknife.Bind;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 
 @RetainConfig(restorePolicy = RestorePolicy.IF_NULL)
 @IncludeClasses(ParcelerSupport.class)
@@ -67,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
 	public void start() {
 
 
-		Builders.MainActivity().myString(myString).startActivity(this);
+		//Builders.MainActivity().myString(myString).startActivity(this);
 	}
 
 	@Override

@@ -24,7 +24,8 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 		super(base, sources);
 	}
 
-	public BuilderTestEnvironment(IntegrationTestBase base, TestSource source, TestSource... required) {
+	public BuilderTestEnvironment(IntegrationTestBase base, TestSource source,
+			TestSource... required) {
 		super(base, source, required);
 	}
 
@@ -56,11 +57,11 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 			// verify builder structure
 			try {
 
-				String builderParentName = source.packageName + "."
-						+ ArgumentBuilderModel.BUILDER_CLASS_NAME;
+				String builderParentName = source.fqpn() + "."
+						+ Internal.BUILDER_CLASS_NAME;
 				builderParentClass = environment.classLoader().loadClass(builderParentName);
-				String builderClassName = source.className
-						+ ArgumentBuilderModel.BUILDER_CLASS_SUFFIX;
+				String builderClassName = source.className()
+						+ Internal.BUILDER_CLASS_SUFFIX;
 				// <package>.<builderName>
 				builderClass = environment.classLoader()
 						.loadClass(builderParentName + "$" + builderClassName);
@@ -70,9 +71,9 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 								+ builderClassName + "$" + builderClassName));
 
 				try {
-					builderClassMethodWithBundle = builderParentClass.getMethod(source.className,
+					builderClassMethodWithBundle = builderParentClass.getMethod(source.simpleName(),
 							Bundle.class);
-					Method builderClassMethod = builderParentClass.getMethod(source.className);
+					Method builderClassMethod = builderParentClass.getMethod(source.simpleName());
 
 					assertEquals("Different return types from builder method, should not happen",
 							builderClassMethod.getReturnType(),
@@ -160,11 +161,23 @@ public class BuilderTestEnvironment extends BaseTestEnvironment {
 				Consumer<Set<Method>> action) {
 			Set<Method> methods = Arrays.stream(builderClass.getMethods()).filter(methodPredicate)
 					.collect(Collectors.toSet());
-			System.out.println("Matching " + methods + " for "+methodCount);
+			System.out.println("Matching " + methods + " for " + methodCount);
 			if (methods.size() != methodCount) {
 				action.accept(methods);
 			}
 		}
+	}
+
+	public SingleBuilderTester assertBuilderGeneratedAndValid(Predicate<TestSource> predicate) {
+		List<TestSource> sources = this.sources.stream().filter(predicate)
+				.collect(Collectors.toList());
+		if (sources.size() != 1)
+			throw new AssertionError(
+					"none or more than one result matched with the given predicate, found:"
+							+ sources);
+		SingleBuilderTester tester = new SingleBuilderTester(this, sources.get(0));
+		tester.initializeAndValidate();
+		return tester;
 	}
 
 	public List<SingleBuilderTester> assertAllBuildersGeneratedAndValid() {

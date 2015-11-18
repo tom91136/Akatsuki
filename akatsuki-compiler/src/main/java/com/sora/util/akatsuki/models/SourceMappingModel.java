@@ -1,14 +1,13 @@
 package com.sora.util.akatsuki.models;
 
-import com.sora.util.akatsuki.CodeGenerator;
 import com.sora.util.akatsuki.ProcessorContext;
 
-public abstract class GenerationTargetModel<M> extends BaseModel implements CodeGenerator<M> {
+public abstract class SourceMappingModel extends GeneratedClass {
 
 	private final SourceClassModel classModel;
 	private final SourceTreeModel treeModel;
 
-	protected GenerationTargetModel(ProcessorContext context, SourceClassModel classModel,
+	protected SourceMappingModel(ProcessorContext context, SourceClassModel classModel,
 			SourceTreeModel treeModel) {
 		super(context);
 		this.classModel = classModel;
@@ -19,7 +18,7 @@ public abstract class GenerationTargetModel<M> extends BaseModel implements Code
 		return classModel;
 	}
 
-	public SourceTreeModel treeModel() {
+	protected SourceTreeModel treeModel() {
 		return treeModel;
 	}
 

@@ -9,9 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
@@ -23,6 +22,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
 
+import com.google.common.base.MoreObjects;
 import com.sora.util.akatsuki.Log;
 import com.sora.util.akatsuki.ProcessorContext;
 
@@ -30,11 +30,20 @@ public class SourceTreeModel extends BaseModel {
 
 	private static final Set<Modifier> DISALLOWED_MODIFIERS = EnumSet.of(Modifier.FINAL,
 			Modifier.STATIC, Modifier.PRIVATE);
+
 	private final List<SourceClassModel> models;
+	private final List<SourceClassModel> flattenedModel;
+
+	public enum Arrangement {
+		FLATTENED, HEAD
+	}
 
 	private SourceTreeModel(ProcessorContext context, List<SourceClassModel> models) {
 		super(context);
 		this.models = models;
+		this.flattenedModel = models.stream()
+				.flatMap(m -> Stream.concat(m.children().stream(), Stream.of(m))).distinct()
+				.collect(Collectors.toList());
 	}
 
 	public boolean containsClass(CharSequence fqcn) {
@@ -83,8 +92,7 @@ public class SourceTreeModel extends BaseModel {
 			if (!verifyOnly) {
 				final TypeElement enclosingClass = (TypeElement) element.getEnclosingElement();
 
-				// transient marks the field as skipped
-				if (!element.getModifiers().contains(Modifier.TRANSIENT)) {
+				if (context.config().fieldAllowed(element)) {
 					final SourceClassModel model = classNameMap.computeIfAbsent(
 							enclosingClass.getQualifiedName().toString(),
 							k -> new SourceClassModel(context, enclosingClass));
@@ -100,6 +108,7 @@ public class SourceTreeModel extends BaseModel {
 			processed++;
 		}
 
+		Collection<SourceClassModel> models = classNameMap.values();
 		if (processed != list.size()) {
 			context.messager().printMessage(Kind.NOTE,
 					(list.size() - processed)
@@ -107,13 +116,13 @@ public class SourceTreeModel extends BaseModel {
 							+ "error has occurred.");
 		} else {
 			// stage 2, initialize them all
-			for (SourceClassModel model : classNameMap.values()) {
-				model.initialize(classNameMap, roundEnv);
-			}
+			models.forEach(model -> model.linkParent(classNameMap));
+			models.forEach(model -> model.findChildren(classNameMap, roundEnv));
+
+			models.forEach(SourceClassModel::markHiddenFields);
 		}
 
-		return verifyOnly ? null
-				: new SourceTreeModel(context, new ArrayList<>(classNameMap.values()));
+		return verifyOnly ? null : new SourceTreeModel(context, new ArrayList<>(models));
 	}
 
 	private static boolean annotatedElementValid(ProcessorContext context, Element element) {
@@ -180,29 +189,29 @@ public class SourceTreeModel extends BaseModel {
 		return true;
 	}
 
-	public List<SourceClassModel> classModels() {
-		return Collections.unmodifiableList(models);
+	static boolean enclosingClassValid(ProcessorContext context, TypeElement enclosingClass){
+
+		// protected, package-private, and public all allow same package
+		// access
+		if (enclosingClass.getModifiers().contains(Modifier.PRIVATE)) {
+			context.messager().printMessage(Kind.ERROR,
+					"class cannot be private",
+					enclosingClass);
+			return false;
+		}
+
+		if (enclosingClass.getNestingKind() != NestingKind.TOP_LEVEL
+				    && !enclosingClass.getModifiers().contains(Modifier.STATIC)) {
+			context.messager().printMessage(Kind.ERROR,
+					"class is nested but not static", enclosingClass);
+			return false;
+		}
+		return true;
 	}
 
-	// TODO make this concurrent; currently depending on thread safety of Types
-	// and Elements
-	public <M> List<M> forEachClassSerial(ClassWalker<M> walker,
-			BiConsumer<Exception, SourceClassModel> exceptionHandler) {
-		AtomicBoolean exceptionThrown = new AtomicBoolean();
-		List<M> createdModels = classModels().stream().map(m -> {
-			try {
-				return walker.walk(m, this);
-			} catch (Exception e) {
-				exceptionHandler.accept(e, m);
-				exceptionThrown.set(true);
-				return null;
-			}
-		}).collect(Collectors.toList());
-		return exceptionThrown.get() ? null : createdModels;
-	}
-
-	public interface ClassWalker<M> {
-		M walk(SourceClassModel classModel, SourceTreeModel treeModel) throws Exception;
+	public List<SourceClassModel> classModels(Arrangement arrangement) {
+		return Collections
+				.unmodifiableList(arrangement == Arrangement.FLATTENED ? flattenedModel : models);
 	}
 
 	public Collection<SourceClassModel> findModelWithMatchingElement(TypeElement e) {
@@ -218,4 +227,8 @@ public class SourceTreeModel extends BaseModel {
 						.findFirst().orElse(null));
 	}
 
+	@Override
+	public String toString() {
+		return MoreObjects.toStringHelper(this).add("models", models).toString();
+	}
 }

@@ -10,8 +10,4 @@ public class BaseModel {
 		this.context = context;
 	}
 
-	// TODO use me
-	public void initialize() throws Exception {
-		// not everyone needs initialization
-	}
 }
