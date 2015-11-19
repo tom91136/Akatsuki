@@ -25,10 +25,10 @@ public class Akatsuki {
 
 	private static final Map<Class<? extends TypeConverter<?>>, TypeConverter<?>> CACHED_CONVERTERS = new WeakHashMap<>();
 
-	public static final String RETAINER_CACHE_NAME = "AkatsukiMapping";
-	public static final String RETAINER_CACHE_PACKAGE = "com.sora.util.akatsuki";
+	static final String RETAINER_CACHE_NAME = "AkatsukiMapping";
+	static final String RETAINER_CACHE_PACKAGE = "com.sora.util.akatsuki";
 
-	public static final String TAG = "Akatsuki";
+	static final String TAG = "Akatsuki";
 
 	static LoggingLevel loggingLevel = AkatsukiConfig.LoggingLevel.ERROR_ONLY;
 
@@ -36,9 +36,10 @@ public class Akatsuki {
 
 	static {
 		Class<?> retainerCacheClass = null;
+
 		try {
 			retainerCacheClass = Class.forName(RETAINER_CACHE_PACKAGE + "." + RETAINER_CACHE_NAME);
-		} catch (ClassNotFoundException iggored) {
+		} catch (ClassNotFoundException ignored) {
 			// we don't have it, that's fine
 		}
 		if (retainerCacheClass != null) {
