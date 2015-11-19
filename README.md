@@ -104,6 +104,7 @@ compile 'com.sora.util.akatsuki:akatsuki-parceler:0.2.0@aar'
 ```
 
 
+
 Please pay special attention to the build script:
 
 ```groovy
@@ -117,6 +118,26 @@ compileOptions {
 
 ##### [Sample app(.apk)](http://jcenter.bintray.com/com/sora/util/akatsuki/sample/0.2.0/)
 Showcasing (`Fragment` + `NumberPicker`/`EditText`)
+
+
+**Snapshot builds** 
+
+They are released on JitPack:
+
+    repositories {
+        //...
+        maven { url "https://jitpack.io" }
+    }
+    dependencies {
+        compile 'com.github.tom91136.akatsuki:akatsuki-api:<commit>'
+        apt 'com.github.tom91136.akatsuki:akatsuki-compiler:<commit>'
+    }
+    
+    
+Substitute `<commit>` with the latest commit hash, you can look them up in the commit history of [here](https://jitpack.io/#tom91136/Akatsuki)
+
+The first sync/build will take a **long** time, be patient.
+
 
 ## Proguard
 Please use the following rules if you have proguard enabled in your build script:
