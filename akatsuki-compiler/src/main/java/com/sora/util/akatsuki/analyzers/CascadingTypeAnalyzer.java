@@ -228,7 +228,7 @@ public abstract class CascadingTypeAnalyzer<S extends CascadingTypeAnalyzer<S, T
 
 		@Override
 		public String emit() {
-			return MustacheUtils.render(scope, transforms.apply(expression.render(scope)));
+			return preEmitOnce() + MustacheUtils.render(scope, transforms.apply(expression.render(scope))) + postEmitOnce();
 		}
 
 		@Override

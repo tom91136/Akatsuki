@@ -133,7 +133,7 @@ class Internal {
 
 		String builderClassName = name + "Builder";
 
-		Log.i(Akatsuki.TAG, "clz simple -> " + builderClassName);
+		//Log.i(Akatsuki.TAG, "clz simple -> " + builderClassName);
 		// if (!clazz.isMemberClass() || false) {
 		// int indexOfDollar = builderClassName.lastIndexOf('$');
 		// if (indexOfDollar != -1) {
@@ -145,7 +145,7 @@ class Internal {
 		String className = generateRetainerClassName(packageName + "." + BUILDER_CLASS_NAME + "$"
 				+ builderClassName + "$" + builderClassName);
 
-		Log.i(Akatsuki.TAG, "bcn -> " + builderClassName);
+		//Log.i(Akatsuki.TAG, "bcn -> " + builderClassName);
 
 		try {
 			retainerClass = (Class<? extends BundleRetainer<T>>) Class.forName(className, true,
