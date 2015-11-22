@@ -8,31 +8,38 @@
 Akatsuki is an light weight Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) and argument passing via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
 
+###Key features:
 
 State restoration
 
  - Retain state with `@Retained`
- - All types supported by `Bundle` can be `@Retained`
- - Inheritance is supported
- - Generic parameters are supported
- - `TypeConverter` and `@TransformationTemplate` for custom types
+ - Supports all types allowed in `Bundle` and a few more
+ - Supports inheritance
+ - Supports generic parameters
+ - Custom type support with `TypeConverter` and `@TransformationTemplate`
  - Compatible with other parcel and binding libraries
+ - Per class and global configuration via `@RetainConfig`
  
  
 Argument passing
 
  - Pass arguments with `@Arg`
- - Supports ANY class, including `Activity`, `Fragment`, `Service`.  You name it!
- - Support for type safe builders
+ - Supports inheritance, builders will be generated for all subclasses
+ - Supports `Activity`, `Fragment`, and `Service`
+ - Custom builder support with `ArgConcludingBuilder`
+ - Supports chained, checked, unchecked,  and type safe builders
+ - Per class and global configuration via `@ArgConfig`
  
  
-Why Akatsuki?
+Good to know
 
-This library handles most Android IPC boilerplate that would otherwise be tedious to write and maintain. 
+ - `@Retained` and `@Arg` can be used together
+ - Annotation based configuration via `@AkatsukiConfig`
 
-While AndroidAnnotations is awesome, I'm looking for a lightweight drop in solution for only eliminating IPC boilerplate, and writing my own seems to be the only solution. 
-Dart, Icepick and FragmentArg is awesome on their own, but it gets tedious when used together because you have to call their static helper everywhere and some of them don't play nice with each other.  
 
+In short, this library handles most Android IPC boilerplate that would otherwise be tedious to write and maintain. 
+
+ 
 Example usage:
 
 
@@ -122,7 +129,7 @@ Showcasing (`Fragment` + `NumberPicker`/`EditText`)
 
 **Snapshot builds** 
 
-They are released on JitPack:
+Snapshot builds are released on JitPack:
 
     repositories {
         //...
@@ -134,7 +141,7 @@ They are released on JitPack:
     }
     
     
-Substitute `<commit>` with the latest commit hash, you can look them up in the commit history of [here](https://jitpack.io/#tom91136/Akatsuki)
+Substitute `<commit>` with the latest commit hash, you can look them up in the commit history [here](https://jitpack.io/#tom91136/Akatsuki)
 
 The first sync/build will take a **long** time, be patient.
 
