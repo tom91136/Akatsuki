@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.org/tom91136/Akatsuki.svg)](https://travis-ci.org/tom91136/Akatsuki)
 [![Download](https://api.bintray.com/packages/tom91136/maven/Akatsuki/images/download.svg)](https://bintray.com/tom91136/maven/Akatsuki/_latestVersion)
 
-Akatsuki is an light weight Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) and argument passing via annotations.
+Akatsuki is a light weight Android library that handles [state restoration](http://developer.android.com/training/basics/activity-lifecycle/recreating.html) and argument passing via annotations.
 The library automatically generates source files through JSR269 to ensure almost<sup>1</sup> zero performance impact.
 
 ###Key features:
